@@ -3,30 +3,33 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Calendrier des Réservations</title>
+    <title>Calendrier de réservation Serre-Chevalier</title>
     <link href="https://cdn.jsdelivr.net/npm/fullcalendar@5.11.3/main.min.css" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/fullcalendar@5.11.3/main.min.js"></script>
     <style>
         body { font-family: Arial, sans-serif; padding: 20px; }
+        .calendar-container { margin-bottom: 40px; }
         #calendar { max-width: 900px; margin: auto; }
     </style>
 </head>
 <body>
-    <h2>Calendrier des Réservations</h2>
-    <div id="calendar"></div>
+    <h2>Calendrier de réservation Serre-Chevalier</h2>
+    <div class="calendar-container" id="calendar"></div>
+
+    <h2>Calendrier de réservation Cavalaire</h2>
+    <div class="calendar-container" id="calendar-cavalaire"></div>
 
     <script>
         document.addEventListener('DOMContentLoaded', function() {
-            var calendarEl = document.getElementById('calendar');
-            var calendar = new FullCalendar.Calendar(calendarEl, {
+            var calendarSerreEl = document.getElementById('calendar');
+            var calendarCavalaireEl = document.getElementById('calendar-cavalaire');
+
+            // Calendrier Serre-Chevalier
+            var calendarSerre = new FullCalendar.Calendar(calendarSerreEl, {
+                locale: 'fr', // Langue en français
                 initialView: 'dayGridMonth',
+                firstDay: 1, // Semaine commence le lundi
                 events: [
-                    {
-                        title: 'Réservé - Cavalaire',
-                        start: '2025-04-10',
-                        end: '2025-04-15',
-                        color: 'red'
-                    },
                     {
                         title: 'Réservé - Serre-Chevalier',
                         start: '2025-04-18',
@@ -35,8 +38,25 @@
                     }
                 ]
             });
-            calendar.render();
+            calendarSerre.render();
+
+            // Calendrier Cavalaire
+            var calendarCavalaire = new FullCalendar.Calendar(calendarCavalaireEl, {
+                locale: 'fr', // Langue en français
+                initialView: 'dayGridMonth',
+                firstDay: 1, // Semaine commence le lundi
+                events: [
+                    {
+                        title: 'Réservé - Cavalaire',
+                        start: '2025-04-10',
+                        end: '2025-04-15',
+                        color: 'red'
+                    }
+                ]
+            });
+            calendarCavalaire.render();
         });
     </script>
 </body>
 </html>
+
