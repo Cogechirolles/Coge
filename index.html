@@ -4,8 +4,10 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Calendrier des réservations</title>
+
   <!-- Lien vers le fichier CSS de FullCalendar -->
   <link href="https://cdnjs.cloudflare.com/ajax/libs/fullcalendar/3.2.0/fullcalendar.min.css" rel="stylesheet" />
+
   <style>
     /* Style supplémentaire pour mieux afficher les calendriers */
     #calendar {
@@ -13,8 +15,11 @@
       margin: 0 auto;
     }
   </style>
+
   <!-- Chargement de la locale française pour FullCalendar -->
   <script src="https://cdn.jsdelivr.net/npm/fullcalendar@3.2.0/dist/locale/fr.js"></script>
+
+  <!-- Chargement des librairies nécessaires pour FullCalendar -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.29.1/moment.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/fullcalendar/3.2.0/fullcalendar.min.js"></script>
@@ -44,7 +49,7 @@
           right: 'month,agendaWeek,agendaDay'
         },
         events: [
-          // Exemple d'événement pour Serre-Chevalier
+          // Exemple d'événements pour Serre-Chevalier
           {
             title: 'Réservation 1',
             start: '2025-04-10',
@@ -67,7 +72,7 @@
           right: 'month,agendaWeek,agendaDay'
         },
         events: [
-          // Exemple d'événement pour Cavalaire
+          // Exemple d'événements pour Cavalaire
           {
             title: 'Réservation 3',
             start: '2025-04-20',
