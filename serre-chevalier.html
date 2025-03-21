@@ -5,9 +5,15 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Calendrier de réservation Serre-Chevalier</title>
 
-  <!-- FullCalendar CSS -->
+  <!-- FullCalendar CSS (version 3.2.0) -->
   <link href="https://cdnjs.cloudflare.com/ajax/libs/fullcalendar/3.2.0/fullcalendar.min.css" rel="stylesheet">
   
+  <!-- jQuery -->
+  <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+
+  <!-- FullCalendar JS (version 3.2.0) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/fullcalendar/3.2.0/fullcalendar.min.js"></script>
+
   <style>
     body {
       font-family: Arial, sans-serif;
@@ -37,12 +43,6 @@
   <!-- Le calendrier -->
   <div id="calendar"></div>
 
-  <!-- jQuery -->
-  <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-
-  <!-- FullCalendar JS (version 3.2.0 sans Moment.js) -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/fullcalendar/3.2.0/fullcalendar.min.js"></script>
-
   <script>
     $(document).ready(function() {
       $('#calendar').fullCalendar({
@@ -54,7 +54,6 @@
           right: 'month,agendaWeek,agendaDay'
         },
         events: [
-          // Exemple d'événements à intégrer ici
           {
             title: 'Réservation A',
             start: '2025-04-01',
