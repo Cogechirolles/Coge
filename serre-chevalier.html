@@ -22,16 +22,15 @@
   <h1>Calendrier de réservation Serre-Chevalier</h1>
   <div id="calendar"></div>
 
-  <!-- FullCalendar v5 JS -->
+  <!-- FullCalendar v5 JS et locale française -->
   <script src="https://cdn.jsdelivr.net/npm/fullcalendar@5.11.3/main.min.js"></script>
-  <!-- Locale français pour FullCalendar v5 -->
   <script src="https://cdn.jsdelivr.net/npm/fullcalendar@5.11.3/locales/fr.js"></script>
   <script>
     document.addEventListener('DOMContentLoaded', function() {
       var calendarEl = document.getElementById('calendar');
       var calendar = new FullCalendar.Calendar(calendarEl, {
         locale: 'fr',              // Tout en français
-        initialView: 'dayGridMonth', // Vue par défaut (mois)
+        initialView: 'dayGridMonth', // Vue mensuelle par défaut
         firstDay: 1,               // La semaine commence le lundi
         headerToolbar: {
           left: 'prev,next today',
