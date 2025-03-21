@@ -6,6 +6,7 @@
     <title>Calendrier de réservation Serre-Chevalier</title>
     <link href="https://cdn.jsdelivr.net/npm/fullcalendar@5.11.3/main.min.css" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/fullcalendar@5.11.3/main.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/fullcalendar@5.11.3/locales/fr.js"></script>
     <style>
         body { font-family: Arial, sans-serif; padding: 20px; }
         .calendar-container { margin-bottom: 40px; }
@@ -16,19 +17,14 @@
     <h2>Calendrier de réservation Serre-Chevalier</h2>
     <div class="calendar-container" id="calendar"></div>
 
-    <h2>Calendrier de réservation Cavalaire</h2>
-    <div class="calendar-container" id="calendar-cavalaire"></div>
-
     <script>
         document.addEventListener('DOMContentLoaded', function() {
-            var calendarSerreEl = document.getElementById('calendar');
-            var calendarCavalaireEl = document.getElementById('calendar-cavalaire');
+            var calendarEl = document.getElementById('calendar');
 
-            // Calendrier Serre-Chevalier
-            var calendarSerre = new FullCalendar.Calendar(calendarSerreEl, {
+            var calendar = new FullCalendar.Calendar(calendarEl, {
                 locale: 'fr', // Langue en français
-                initialView: 'dayGridMonth',
                 firstDay: 1, // Semaine commence le lundi
+                initialView: 'dayGridMonth',
                 events: [
                     {
                         title: 'Réservé - Serre-Chevalier',
@@ -38,25 +34,8 @@
                     }
                 ]
             });
-            calendarSerre.render();
-
-            // Calendrier Cavalaire
-            var calendarCavalaire = new FullCalendar.Calendar(calendarCavalaireEl, {
-                locale: 'fr', // Langue en français
-                initialView: 'dayGridMonth',
-                firstDay: 1, // Semaine commence le lundi
-                events: [
-                    {
-                        title: 'Réservé - Cavalaire',
-                        start: '2025-04-10',
-                        end: '2025-04-15',
-                        color: 'red'
-                    }
-                ]
-            });
-            calendarCavalaire.render();
+            calendar.render();
         });
     </script>
 </body>
 </html>
-
