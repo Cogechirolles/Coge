@@ -5,50 +5,41 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Calendrier des réservations</title>
 
-  <!-- Lien vers le fichier CSS de FullCalendar -->
+  <!-- CSS de FullCalendar -->
   <link href="https://cdnjs.cloudflare.com/ajax/libs/fullcalendar/3.2.0/fullcalendar.min.css" rel="stylesheet" />
 
   <style>
-    /* Style supplémentaire pour mieux afficher les calendriers */
+    /* Conteneur général */
     #calendar {
       max-width: 900px;
       margin: 0 auto;
     }
-
-    /* Centrer et agrandir les titres */
+    /* Titres des calendriers */
     h2 {
       text-align: center;
-      font-size: 2.5em;  /* Augmenter encore la taille du texte */
+      font-size: 2.5em;
       margin-top: 20px;
       margin-bottom: 15px;
       font-weight: bold;
     }
-
-    /* Centrer le titre principal */
-    h1 {
-      text-align: center;
-      font-size: 3em;
-      margin-bottom: 30px;
-    }
   </style>
 
-  <!-- Chargement de la locale française pour FullCalendar -->
-  <script src="https://cdn.jsdelivr.net/npm/fullcalendar@3.2.0/dist/locale/fr.js"></script>
-
-  <!-- Chargement des librairies nécessaires pour FullCalendar -->
+  <!-- jQuery, Moment.js et FullCalendar -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.29.1/moment.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/fullcalendar/3.2.0/fullcalendar.min.js"></script>
+  <!-- Chargement de la locale française pour FullCalendar -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/fullcalendar/3.2.0/locale/fr.js"></script>
 </head>
 <body>
 
-  <!-- Page Serre-Chevalier -->
+  <!-- Calendrier de réservation Serre-Chevalier -->
   <h2>Calendrier de réservation Serre-Chevalier</h2>
   <div id="calendar-serre"></div>
 
   <hr>
 
-  <!-- Page Cavalaire -->
+  <!-- Calendrier de réservation Cavalaire -->
   <h2>Calendrier de réservation Cavalaire</h2>
   <div id="calendar-cavalaire"></div>
 
@@ -56,14 +47,14 @@
     $(document).ready(function() {
       // Initialisation du calendrier pour Serre-Chevalier
       $('#calendar-serre').fullCalendar({
-        locale: 'fr',  // Langue française
+        locale: 'fr',       // Tout en français
+        firstDay: 1,        // La semaine commence le lundi
         header: {
           left: 'prev,next today',
           center: 'title',
           right: 'month,agendaWeek,agendaDay'
         },
         events: [
-          // Exemple d'événements pour Serre-Chevalier
           {
             title: 'Réservation 1',
             start: '2025-04-10',
@@ -79,14 +70,14 @@
 
       // Initialisation du calendrier pour Cavalaire
       $('#calendar-cavalaire').fullCalendar({
-        locale: 'fr',  // Langue française
+        locale: 'fr',       // Tout en français
+        firstDay: 1,        // La semaine commence le lundi
         header: {
           left: 'prev,next today',
           center: 'title',
           right: 'month,agendaWeek,agendaDay'
         },
         events: [
-          // Exemple d'événements pour Cavalaire
           {
             title: 'Réservation 3',
             start: '2025-04-20',
