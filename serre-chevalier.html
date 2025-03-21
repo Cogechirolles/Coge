@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Calendrier de réservation Serre-Chevalier</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/fullcalendar@3.2.0/dist/fullcalendar.min.css">
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      text-align: center;
+      margin: 20px;
+    }
+    h1 {
+      font-size: 2em;
+      color: #333;
+    }
+  </style>
+</head>
+<body>
+  <h1>Calendrier de réservation Serre-Chevalier</h1>
+  <div id="calendar"></div>
+
+  <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/fullcalendar@3.2.0/dist/fullcalendar.min.js"></script>
+  <script>
+    $(document).ready(function() {
+      $('#calendar').fullCalendar({
+        header: {
+          left: 'prev,next today',
+          center: 'title',
+          right: 'month,agendaWeek,agendaDay'
+        },
+        locale: 'fr',
+        firstDay: 1, // Lundi comme premier jour de la semaine
+        events: 'https://path-to-your-events-source.com' // Remplace par ton URL d'événements ou la source API
+      });
+    });
+  </script>
+</body>
+</html>
