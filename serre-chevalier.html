@@ -60,7 +60,7 @@
       return records.map(record => {
         // Assure-toi que les noms des champs correspondent exactement aux noms utilisés dans ta table Airtable
         return {
-          title: record.fields["Nom"] + " (" + record.fields["Statut de la demande de la demande"] + ")",
+          title: record.fields["Nom"] + " (" + record.fields["Statut de la demande"] + ")",
           start: record.fields["Date de début"],
           end: record.fields["Date de fin"]
         };
