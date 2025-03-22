@@ -3,39 +3,67 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Calendrier de réservation Cavalaire</title>
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/fullcalendar@3.2.0/dist/fullcalendar.min.css">
+  <title>Calendrier des réservations</title>
+
+  <!-- CSS de FullCalendar -->
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/fullcalendar/3.2.0/fullcalendar.min.css" rel="stylesheet" />
+
   <style>
-    body {
-      font-family: Arial, sans-serif;
-      text-align: center;
-      margin: 20px;
+    /* Conteneur général */
+    #calendar {
+      max-width: 900px;
+      margin: 0 auto;
     }
-    h1 {
-      font-size: 2em;
-      color: #333;
+    /* Titres des calendriers */
+    h2 {
+      text-align: center;
+      font-size: 2.5em;
+      margin-top: 20px;
+      margin-bottom: 15px;
+      font-weight: bold;
     }
   </style>
+
+  <!-- jQuery, Moment.js et FullCalendar -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.29.1/moment.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/fullcalendar/3.2.0/fullcalendar.min.js"></script>
+  <!-- Chargement de la locale française pour FullCalendar -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/fullcalendar/3.2.0/locale/fr.js"></script>
 </head>
 <body>
-  <h1>Calendrier de réservation Cavalaire</h1>
-  <div id="calendar"></div>
 
-  <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/fullcalendar@3.2.0/dist/fullcalendar.min.js"></script>
-  <script>
-    $(document).ready(function() {
-      $('#calendar').fullCalendar({
+
+
+  <!-- Calendrier de réservation Cavalaire -->
+  <h2>Calendrier de réservation Cavalaire</h2>
+  <div id="calendar-cavalaire"></div>
+
+ 
+      // Initialisation du calendrier pour Cavalaire
+      $('#calendar-cavalaire').fullCalendar({
+        locale: 'fr',       // Langue française
+        firstDay: 1,        // La semaine commence le lundi
         header: {
           left: 'prev,next today',
           center: 'title',
           right: 'month,agendaWeek,agendaDay'
         },
-        locale: 'fr',
-        firstDay: 1, // Lundi comme premier jour de la semaine
-        events: 'https://path-to-your-events-source.com' // Remplace par ton URL d'événements ou la source API
+        events: [
+          {
+            title: 'Réservation 3',
+            start: '2025-04-20',
+            end: '2025-04-22'
+          },
+          {
+            title: 'Réservation 4',
+            start: '2025-04-25',
+            end: '2025-04-27'
+          }
+        ]
       });
     });
   </script>
+
 </body>
 </html>
