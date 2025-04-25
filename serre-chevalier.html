@@ -1,0 +1,59 @@
+
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Calendrier de réservation - Serre-Chevalier</title>
+  <link href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/index.global.min.css" rel="stylesheet">
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 20px;
+    }
+    #calendar {
+      max-width: 900px;
+      margin: 0 auto;
+    }
+    .legend {
+      font-size: 14px;
+      margin-top: 20px;
+      text-align: center;
+    }
+    .legend div {
+      display: inline-block;
+      margin: 0 15px;
+      padding: 5px;
+      border-radius: 5px;
+    }
+    .legend .blue {
+      background-color: #add8e6;
+    }
+    .legend .green {
+      background-color: #a8e6a2;
+    }
+    .legend .red {
+      background-color: #f7b2b0;
+    }
+  </style>
+  <link rel="stylesheet" href="https://unpkg.com/tippy.js@6/themes/light-border.css" />
+  <script src="https://unpkg.com/@popperjs/core@2"></script>
+  <script src="https://unpkg.com/tippy.js@6"></script>
+</head>
+<body>
+  <h1>Calendrier de réservation - Serre-Chevalier</h1>
+  <div id="calendar"></div>
+
+  <div class="legend">
+    <div class="blue">Réservation en Attente</div>
+    <div class="green">Réservation Validée</div>
+    <div class="red">Réservation Refusée</div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/index.global.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/locales/fr.global.min.js"></script>
+
+  <!-- Script spécifique à Serre-Chevalier -->
+  <script src="serre-chevalier.js"></script>
+</body>
+</html>
