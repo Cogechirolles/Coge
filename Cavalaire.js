@@ -1,28 +1,15 @@
-/* =========================
-   Cavalaire.js (COGE)
-   FullCalendar - Month grid
-   Affichage demi-journée:
-   Arrivée = 12:00 (PM)
-   Départ  = 12:00 (AM) (jour de sortie)
-   ========================= */
-
 document.addEventListener("DOMContentLoaded", function () {
-  /* ========= A CONFIGURER (tes variables existantes) =========
-     Si tu as déjà ces variables plus haut dans ton fichier actuel,
-     garde-les et supprime ce bloc.
-  */
-  const token = window.AIRTABLE_TOKEN || "XXX"; // ⚠️ évite de laisser une vraie clé dans un JS public
+  // ======= A REMPLACER par tes vraies valeurs (ou mets-les en window.xxx) =======
+  const token = window.AIRTABLE_TOKEN || "XXX";
   const reservationsUrl = window.RESERVATIONS_URL || "XXX";
   const vacancesUrl = window.VACANCES_URL || "XXX";
 
+  // ======= Utils =======
   function formatDate(dateStr) {
-    // dateStr: "YYYY-MM-DD"
     const [y, m, d] = dateStr.split("-").map(Number);
-    const dt = new Date(y, m - 1, d);
-    return dt.toLocaleDateString("fr-FR");
+    return new Date(y, m - 1, d).toLocaleDateString("fr-FR");
   }
 
-  /* ========= Helpers dates (locales) ========= */
   function parseDateOnlyLocal(dateStr) {
     const [y, m, d] = dateStr.split("-").map(Number);
     return new Date(y, m - 1, d, 0, 0, 0, 0);
@@ -42,6 +29,13 @@ document.addEventListener("DOMContentLoaded", function () {
       && a.getMonth() === b.getMonth()
       && a.getDate() === b.getDate();
   }
+  function toYMD(d) {
+    // d = Date locale
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, "0");
+    const day = String(d.getDate()).padStart(2, "0");
+    return `${y}-${m}-${day}`;
+  }
 
   function statutToClass(statut) {
     const s = (statut || "").toLowerCase();
@@ -50,93 +44,90 @@ document.addEventListener("DOMContentLoaded", function () {
     return "coge-attente";
   }
 
-  /* ========= Demi-journées dans les cellules ========= */
+  // ======= On DESSINE les réservations nous-mêmes (pas d'events FC pour ça) =======
+  let reservationSegments = []; // [{date:'YYYY-MM-DD', part:'start|middle|end', title, statutClass, tooltip}]
+
   function ensureHalves(dayCellEl) {
     const frame = dayCellEl.querySelector(".fc-daygrid-day-frame");
     if (!frame) return;
-    if (frame.querySelector(".coge-halves")) return;
 
-    frame.style.position = "relative";
+    // évite doublons
+    if (!frame.querySelector(".coge-halves")) {
+      const halves = document.createElement("div");
+      halves.className = "coge-halves";
 
-    const halves = document.createElement("div");
-    halves.className = "coge-halves";
+      const am = document.createElement("div");
+      am.className = "coge-half coge-am";
 
-    const am = document.createElement("div");
-    am.className = "coge-half coge-am";
+      const pm = document.createElement("div");
+      pm.className = "coge-half coge-pm";
 
-    const pm = document.createElement("div");
-    pm.className = "coge-half coge-pm";
+      halves.appendChild(am);
+      halves.appendChild(pm);
+      frame.appendChild(halves);
+    }
 
-    halves.appendChild(am);
-    halves.appendChild(pm);
-    frame.appendChild(halves);
+    if (!frame.querySelector(".coge-full")) {
+      const full = document.createElement("div");
+      full.className = "coge-full";
+      frame.appendChild(full);
+    }
   }
 
-  function clearCustomBars(calendarEl) {
+  function clearAllBars(calendarEl) {
     calendarEl.querySelectorAll(".coge-bar").forEach(el => el.remove());
   }
 
-  function placeBar(info) {
-    // On n’affiche en custom que les réservations
-    if (info.event.extendedProps?.kind !== "reservation") return;
+  function renderReservationsOnView(calendarEl, viewStart, viewEnd) {
+    // Nettoie puis redessine (évite les doublons)
+    clearAllBars(calendarEl);
 
-    // On cache l’event natif (mais pas les backgrounds vacances)
-    info.el.classList.add("coge-hide-native");
+    // Pour chaque segment, on cherche la cellule du jour correspondant
+    reservationSegments.forEach(seg => {
+      // Filtre sur la plage visible (optionnel mais propre)
+      // viewStart / viewEnd sont des Dates
+      const segDate = parseDateOnlyLocal(seg.date);
+      if (segDate < viewStart || segDate >= viewEnd) return;
 
-    const part = info.event.extendedProps?.part || "middle"; // start/middle/end
-    const dayCell = info.el.closest(".fc-daygrid-day");
-    if (!dayCell) return;
+      const cell = calendarEl.querySelector(`.fc-daygrid-day[data-date="${seg.date}"]`);
+      if (!cell) return;
 
-    ensureHalves(dayCell);
+      ensureHalves(cell);
 
-    const am = dayCell.querySelector(".coge-am");
-    const pm = dayCell.querySelector(".coge-pm");
-    if (!am || !pm) return;
+      const frame = cell.querySelector(".fc-daygrid-day-frame");
+      const am = frame.querySelector(".coge-am");
+      const pm = frame.querySelector(".coge-pm");
+      const full = frame.querySelector(".coge-full");
 
-    const statutClass = info.event.extendedProps?.statutClass || "coge-attente";
-
-    const makeBar = () => {
       const bar = document.createElement("div");
-      bar.className = `coge-bar ${statutClass}`;
-      if (part === "start") bar.classList.add("coge-start");
-      else if (part === "end") bar.classList.add("coge-end");
+      bar.className = `coge-bar ${seg.statutClass}`;
+      if (seg.part === "start") bar.classList.add("coge-start");
+      else if (seg.part === "end") bar.classList.add("coge-end");
       else bar.classList.add("coge-middle");
 
-      bar.textContent = info.event.title;
+      bar.textContent = seg.title;
 
-      // Tooltip (tippy) : utile pour afficher statut / dates
-      const tip = info.event.extendedProps?.tooltip;
-      if (tip) {
+      if (seg.tooltip) {
         tippy(bar, {
-          content: tip,
+          content: seg.tooltip,
           placement: "top",
           theme: "light-border",
         });
       }
-      return bar;
-    };
 
-    if (part === "start") {
-      pm.appendChild(makeBar());
-    } else if (part === "end") {
-      am.appendChild(makeBar());
-    } else {
-      // middle : une barre en AM + une en PM pour faire “plein jour”
-      const b1 = makeBar();
-      const b2 = makeBar();
-      am.appendChild(b1);
-      pm.appendChild(b2);
-    }
+      if (seg.part === "start") {
+        pm.appendChild(bar);   // arrivée => PM
+      } else if (seg.part === "end") {
+        am.appendChild(bar);   // départ => AM
+      } else {
+        full.appendChild(bar); // jours pleins => une seule barre
+      }
+    });
   }
 
-  /* ========= Conversion 1 réservation Airtable -> segments start/middle/end =========
-     Convention confirmée: "Date de fin" = jour de sortie (départ midi)
-     => occupation: [arrivée 12:00 ; départ 12:00)
-  */
   function recordToSegments(fields) {
     const startRaw = fields["Date de début"];
     const endRaw = fields["Date de fin"];
-
     if (!startRaw || !endRaw) return [];
 
     const nomAbonne = fields["Nom de l'abonné"] || "";
@@ -148,63 +139,38 @@ document.addEventListener("DOMContentLoaded", function () {
 
     const statutClass = statutToClass(statut);
 
+    // Convention confirmée : Date de fin = jour de sortie (départ midi)
+    // période occupée = [arrivée 12:00 ; départ 12:00)
     const arrDate = parseDateOnlyLocal(startRaw);
     const depDate = parseDateOnlyLocal(endRaw);
 
-    let startDT = atHour(arrDate, 12);
-    let endDT = atHour(depDate, 12);
+    const startDT = atHour(arrDate, 12);
+    const endDT = atHour(depDate, 12);
 
-    // Sécurité si données incohérentes (évite end<=start)
-    if (endDT <= startDT) {
-      endDT = atHour(addDays(depDate, 1), 12);
-    }
+    if (endDT <= startDT) return []; // sécurité
 
-    const tooltipBase =
+    const tooltip =
       `Statut : ${statut || "En attente"}<br>` +
       `Arrivée : ${formatDate(startRaw)} (midi)<br>` +
       `Départ : ${formatDate(endRaw)} (midi)`;
 
-    let segments = [];
-    let day = new Date(arrDate); day.setHours(0, 0, 0, 0);
-    const lastDay = new Date(depDate); lastDay.setHours(0, 0, 0, 0);
+    const segments = [];
+
+    let day = new Date(arrDate); day.setHours(0,0,0,0);
+    const lastDay = new Date(depDate); lastDay.setHours(0,0,0,0);
 
     while (day <= lastDay) {
-      const day0 = atHour(day, 0);
-      const day12 = atHour(day, 12);
-      const next0 = atHour(addDays(day, 1), 0);
-
       let part = "middle";
-      let segStart = day0;
-      let segEnd = next0;
+      if (sameDay(day, arrDate)) part = "start";
+      else if (sameDay(day, depDate)) part = "end";
 
-      if (sameDay(day, arrDate)) {
-        part = "start";
-        segStart = day12; // PM
-        segEnd = next0;
-      } else if (sameDay(day, depDate)) {
-        part = "end";
-        segStart = day0;  // AM
-        segEnd = day12;
-      }
-
-      // Tronquer dans [startDT; endDT)
-      if (segStart < startDT) segStart = startDT;
-      if (segEnd > endDT) segEnd = endDT;
-
-      if (segEnd > segStart) {
-        segments.push({
-          title,
-          start: segStart,
-          end: segEnd,
-          allDay: false,
-          extendedProps: {
-            kind: "reservation",
-            part,
-            statutClass,
-            tooltip: tooltipBase
-          }
-        });
-      }
+      segments.push({
+        date: toYMD(day),
+        part,
+        title,
+        statutClass,
+        tooltip
+      });
 
       day = addDays(day, 1);
     }
@@ -212,7 +178,7 @@ document.addEventListener("DOMContentLoaded", function () {
     return segments;
   }
 
-  /* ========= Calendar init ========= */
+  // ======= FullCalendar (servira surtout pour la grille + vacances + 🎲) =======
   const calendarEl = document.getElementById("calendar");
 
   const calendar = new FullCalendar.Calendar(calendarEl, {
@@ -227,6 +193,12 @@ document.addEventListener("DOMContentLoaded", function () {
       right: "dayGridMonth"
     },
 
+    // Force le texte en français même si le locale ne charge pas
+    buttonText: {
+      today: "Aujourd'hui",
+      month: "Mois"
+    },
+
     editable: false,
     selectable: false,
     displayEventTime: false,
@@ -235,42 +207,50 @@ document.addEventListener("DOMContentLoaded", function () {
       ensureHalves(info.el);
     },
 
-    datesSet: function () {
-      // Quand on change de mois: on nettoie nos barres custom (sinon doublons)
-      clearCustomBars(calendarEl);
+    datesSet: function (info) {
+      // Redessine les réservations à chaque changement de mois
+      renderReservationsOnView(calendarEl, info.view.activeStart, info.view.activeEnd);
     },
 
     eventDidMount: function (info) {
-      placeBar(info);
+      // Tooltips sur les events FullCalendar (vacances / 🎲)
+      const tip = info.event.extendedProps?.tooltip;
+      if (tip) {
+        tippy(info.el, {
+          content: tip,
+          placement: "top",
+          theme: "light-border",
+        });
+      }
     }
   });
 
   calendar.render();
 
-  /* ========= Charger les réservations ========= */
+  // ======= Charger les réservations Airtable =======
   fetch(reservationsUrl, {
     headers: { Authorization: `Bearer ${token}` },
   })
-    .then((response) => response.json())
-    .then((data) => {
+    .then(r => r.json())
+    .then(data => {
+      reservationSegments = [];
       const records = data.records || [];
 
-      records.forEach((record) => {
+      records.forEach(record => {
         const fields = record.fields || {};
-        const segs = recordToSegments(fields);
-
-        segs.forEach(seg => calendar.addEvent(seg));
+        reservationSegments.push(...recordToSegments(fields));
       });
-    })
-    .catch((error) => {
-      console.error("Erreur lors de la récupération des événements:", error);
-    });
 
-  /* ========= Charger les périodes de vacances scolaires ========= */
+      // Dessine immédiatement sur la vue courante
+      renderReservationsOnView(calendarEl, calendar.view.activeStart, calendar.view.activeEnd);
+    })
+    .catch(err => console.error("Erreur réservations:", err));
+
+  // ======= Charger les vacances scolaires (background) + 🎲 =======
   fetch(vacancesUrl, {
     headers: { Authorization: `Bearer ${token}` }
   })
-    .then(response => response.json())
+    .then(r => r.json())
     .then(data => {
       const records = data.records || [];
 
@@ -281,7 +261,6 @@ document.addEventListener("DOMContentLoaded", function () {
         const fin = fields["Date de fin"];
         const tirage = fields["Date de tirage au sort"];
 
-        // Vacances en fond
         if (debut && fin) {
           const finPlusUn = parseDateOnlyLocal(fin);
           finPlusUn.setDate(finPlusUn.getDate() + 1);
@@ -292,13 +271,11 @@ document.addEventListener("DOMContentLoaded", function () {
             display: "background",
             color: "#fff3b0",
             extendedProps: {
-              kind: "vacances",
               tooltip: `Période : ${nom} du ${formatDate(debut)} au ${formatDate(fin)}`
             }
           });
         }
 
-        // Tirage au sort (emoji)
         if (tirage) {
           calendar.addEvent({
             title: "🎲",
@@ -306,17 +283,11 @@ document.addEventListener("DOMContentLoaded", function () {
             allDay: true,
             color: "#f4a261",
             extendedProps: {
-              kind: "tirage",
               tooltip: `Tirage au sort : ${nom} - ${formatDate(tirage)}`
             }
           });
         }
       });
-
-      // Tooltips sur événements vacances / tirage (optionnel)
-      // Ici on se contente du tooltip sur les barres custom, mais tu peux aussi en mettre sur les events natifs.
     })
-    .catch(error => {
-      console.error("Erreur lors du chargement des vacances scolaires :", error);
-    });
+    .catch(err => console.error("Erreur vacances:", err));
 });
