@@ -8,7 +8,7 @@
   <!-- FullCalendar -->
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/index.global.min.css">
 
-  <!-- Tippy (tooltips) -->
+  <!-- Tippy (info-bulles) -->
   <link rel="stylesheet" href="https://unpkg.com/tippy.js@6/dist/tippy.css">
 
   <style>
@@ -17,58 +17,65 @@
 
     #calendar { max-width: 1100px; margin: 0 auto; }
 
-    /* Fond doux + bordures */
-    .fc .fc-daygrid-day-frame { background: #fbf6df; }
-    .fc-theme-standard td, .fc-theme-standard th { border-color: #d9d9d9; }
-
-    /* --- Demi-journées dans chaque case --- */
+    /* ===== Demi-journées (AM/PM) dessinées dans chaque case ===== */
     .coge-halves {
       position: absolute;
       left: 0; right: 0;
-      top: 22px; bottom: 0;  /* sous le numéro du jour */
+      top: 22px; bottom: 0; /* sous le numéro du jour */
       display: flex;
       flex-direction: column;
       pointer-events: none;
+      z-index: 2; /* au-dessus du fond */
     }
     .coge-half {
       flex: 1;
       border-top: 1px solid rgba(0,0,0,0.07);
       position: relative;
       overflow: hidden;
-      padding: 0;
     }
     .coge-half + .coge-half {
       border-top: 1px solid rgba(0,0,0,0.12);
     }
 
-    /* --- Barres custom (collées) --- */
+    /* zone "plein jour" (pour les jours au milieu d’un séjour) */
+    .coge-full {
+      position: absolute;
+      left: 0; right: 0;
+      top: 22px; bottom: 0;
+      pointer-events: none;
+      z-index: 3;
+    }
+
+    /* ===== Barre réservation ===== */
     .coge-bar {
       pointer-events: auto; /* pour tooltip */
+      display: block;
       font-size: 12px;
       line-height: 1.1;
       padding: 2px 6px;
-      margin: 0;
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
 
-      display: block;
       width: calc(100% + 2px);
       margin-left: -1px;
       margin-right: -1px;
     }
-    .coge-start { border-radius: 8px 0 0 8px; }
-    .coge-end   { border-radius: 0 8px 8px 0; }
-    .coge-middle{ border-radius: 0; }
 
-    /* Couleurs (statut) */
+    /* extrémités arrondies (barre continue) */
+    .coge-start  { border-radius: 8px 0 0 8px; }
+    .coge-middle { border-radius: 0; }
+    .coge-end    { border-radius: 0 8px 8px 0; }
+
+    /* Couleurs EXACTES (comme ton système) */
     .coge-attente { background: #add8e6; color: #0b2233; }
     .coge-validee { background: #a8e6a2; color: #0b2a0b; }
     .coge-refusee { background: #f7b2b0; color: #3b0b0b; }
 
-    /* On cache UNIQUEMENT le rendu natif des réservations (pas les backgrounds) */
-    .coge-hide-native { display: none !important; }
+    /* Petit ajustement : éviter que la cellule “monte” en hauteur */
+    .fc .fc-daygrid-day-frame { position: relative; }
 
+    /* Légende */
     .legend {
       max-width: 1100px;
       margin: 14px auto 0 auto;
@@ -96,12 +103,10 @@
     <span class="coge-refusee">Réservation Refusée</span>
   </div>
 
-  <!-- Librairies -->
   <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/index.global.min.js"></script>
   <script src="https://unpkg.com/@popperjs/core@2"></script>
   <script src="https://unpkg.com/tippy.js@6"></script>
 
-  <!-- Ton code -->
   <script src="Cavalaire.js"></script>
 </body>
 </html>
