@@ -2,80 +2,88 @@
 <html lang="fr">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Calendrier de réservation - Cavalaire</title>
 
   <!-- FullCalendar -->
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/index.global.min.css">
 
-  <!-- Tippy (info-bulles) -->
-  <link rel="stylesheet" href="https://unpkg.com/tippy.js@6/dist/tippy.css">
+  <!-- Tippy (tooltips vacances) -->
+  <link rel="stylesheet" href="https://unpkg.com/tippy.js@6/themes/light-border.css">
 
   <style>
     body { font-family: Arial, sans-serif; margin: 18px; }
     h1 { margin: 0 0 14px 0; font-size: 44px; font-weight: 800; }
-
     #calendar { max-width: 1100px; margin: 0 auto; }
 
-    /* ===== Demi-journées (AM/PM) dessinées dans chaque case ===== */
-    .coge-halves {
-      position: absolute;
-      left: 0; right: 0;
-      top: 22px; bottom: 0; /* sous le numéro du jour */
-      display: flex;
-      flex-direction: column;
-      pointer-events: none;
-      z-index: 2; /* au-dessus du fond */
-    }
-    .coge-half {
-      flex: 1;
-      border-top: 1px solid rgba(0,0,0,0.07);
-      position: relative;
-      overflow: hidden;
-    }
-    .coge-half + .coge-half {
-      border-top: 1px solid rgba(0,0,0,0.12);
-    }
+    /* IMPORTANT :
+       - Les barres doivent rester clippées dans chaque cellule => day-frame overflow hidden
+       - Le texte (label) doit pouvoir déborder => label-layer sur .fc-daygrid-day (overflow visible)
+    */
+    .fc .fc-daygrid-day-frame { position: relative; overflow: hidden; }
+    .fc .fc-daygrid-day { overflow: visible; }
 
-    /* zone "plein jour" (pour les jours au milieu d’un séjour) */
-    .coge-full {
+    :root{ --lane-h: 16px; --lane-gap: 2px; }
+
+    /* Calque barres */
+    .coge-lanes{
       position: absolute;
       left: 0; right: 0;
       top: 22px; bottom: 0;
       pointer-events: none;
-      z-index: 3;
-    }
-
-    /* ===== Barre réservation ===== */
-    .coge-bar {
-      pointer-events: auto; /* pour tooltip */
-      display: block;
-      font-size: 12px;
-      line-height: 1.1;
-      padding: 2px 6px;
-      white-space: nowrap;
+      z-index: 5;
       overflow: hidden;
-      text-overflow: ellipsis;
-
-      width: calc(100% + 2px);
-      margin-left: -1px;
-      margin-right: -1px;
     }
 
-    /* extrémités arrondies (barre continue) */
-    .coge-start  { border-radius: 8px 0 0 8px; }
-    .coge-middle { border-radius: 0; }
-    .coge-end    { border-radius: 0 8px 8px 0; }
+    /* Calque labels (texte) */
+    .coge-label-layer{
+      position: absolute;
+      left: 0; right: 0;
+      top: 22px; bottom: 0;
+      pointer-events: none;
+      z-index: 20;
+      overflow: visible;
+    }
 
-    /* Couleurs EXACTES (comme ton système) */
-    .coge-attente { background: #add8e6; color: #0b2233; }
-    .coge-validee { background: #a8e6a2; color: #0b2a0b; }
-    .coge-refusee { background: #f7b2b0; color: #3b0b0b; }
+    /* Barres */
+    .coge-bar{
+      position: absolute;
+      height: var(--lane-h);
+      line-height: var(--lane-h);
+      box-sizing: border-box;
+      z-index: 6;
+      pointer-events: none;
+    }
+    .coge-full  { left: 0;   right: 0; }
+    .coge-left  { left: 0;   width: 50%; }   /* AM */
+    .coge-right { left: 50%; width: 50%; }   /* PM */
 
-    /* Petit ajustement : éviter que la cellule “monte” en hauteur */
-    .fc .fc-daygrid-day-frame { position: relative; }
+    .coge-start { border-radius: 8px 0 0 8px; }
+    .coge-end   { border-radius: 0 8px 8px 0; }
+    .coge-mid   { border-radius: 0; }
 
-    /* Légende */
+    /* Couleurs (identiques à ta version) */
+    .coge-validee { background: #a8e6a2; }
+    .coge-attente { background: #add8e6; }
+    .coge-refusee { background: #f7b2b0; }
+
+    /* Labels */
+    .coge-label{
+      position: absolute;
+      height: var(--lane-h);
+      line-height: var(--lane-h);
+      font-size: 12px;
+      font-weight: 600;
+      white-space: nowrap;
+      z-index: 21;
+      pointer-events: none;
+      color: rgba(0,0,0,0.75);
+      width: 420px; /* assez large pour afficher le nom en entier */
+    }
+    .coge-label-full  { left: 6px; }
+    .coge-label-right { left: calc(50% + 6px); }
+
+    /* (Option) Légende simple */
     .legend {
       max-width: 1100px;
       margin: 14px auto 0 auto;
@@ -90,6 +98,9 @@
       font-weight: 600;
       display: inline-block;
     }
+    .legend .attente { background:#add8e6; }
+    .legend .validee { background:#a8e6a2; }
+    .legend .refusee { background:#f7b2b0; }
   </style>
 </head>
 
@@ -98,12 +109,14 @@
   <div id="calendar"></div>
 
   <div class="legend">
-    <span class="coge-attente">Réservation en Attente</span>
-    <span class="coge-validee">Réservation Validée</span>
-    <span class="coge-refusee">Réservation Refusée</span>
+    <span class="attente">Réservation en Attente</span>
+    <span class="validee">Réservation Validée</span>
+    <span class="refusee">Réservation Refusée</span>
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/index.global.min.js"></script>
+
+  <!-- Tippy deps -->
   <script src="https://unpkg.com/@popperjs/core@2"></script>
   <script src="https://unpkg.com/tippy.js@6"></script>
 
