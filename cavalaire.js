@@ -2,7 +2,7 @@ document.addEventListener("DOMContentLoaded", function () {
   const calendarEl = document.getElementById("calendar");
 
   // =========================
-  // CONFIG AIRTABLE (reprend ta logique)
+  // CONFIG AIRTABLE (ta config)
   // =========================
   const token = "pat0NPQWRy7XD1hVk.1325bef1bcbdd202035cedcf62ebb69835ee997bfd5864b53e6224df2f596e6e";
   const baseId = "appBJ1MeKJnAOKwoy";
@@ -67,12 +67,14 @@ document.addEventListener("DOMContentLoaded", function () {
     const frame = dayCellEl.querySelector(".fc-daygrid-day-frame");
     if (!frame) return;
 
+    // barres
     if (!frame.querySelector(".coge-lanes")) {
       const lanes = document.createElement("div");
       lanes.className = "coge-lanes";
       frame.appendChild(lanes);
     }
 
+    // labels (texte qui peut déborder)
     if (!dayCellEl.querySelector(".coge-label-layer")) {
       dayCellEl.style.position = "relative";
       const layer = document.createElement("div");
@@ -112,12 +114,11 @@ document.addEventListener("DOMContentLoaded", function () {
         break;
       }
     }
-
     return all;
   }
 
   // =========================
-  // TRANSFORM AIRTABLE -> RESERVATIONS (pour notre rendu custom)
+  // AIRTABLE -> RESERVATIONS
   // =========================
   function airtableToReservations(records) {
     const out = [];
@@ -148,7 +149,7 @@ document.addEventListener("DOMContentLoaded", function () {
         depart,
         aDay,
         dDay,
-        endExcl: addDays(dDay, 1), // intervalle [arrivee, depart+1)
+        endExcl: addDays(dDay, 1),
         cls: statutToClass(statut),
       });
     });
@@ -185,7 +186,7 @@ document.addEventListener("DOMContentLoaded", function () {
   }
 
   // =========================
-  // RENDER CUSTOM RESERVATIONS
+  // RENDER RESERVATIONS (custom)
   // =========================
   function renderReservations(calendarRoot, viewStart, viewEnd, reservations) {
     clearCustom(calendarRoot);
@@ -193,7 +194,7 @@ document.addEventListener("DOMContentLoaded", function () {
     const visible = reservations.filter((r) => overlaps(r.aDay, r.endExcl, viewStart, viewEnd));
     const laneById = assignLanes(visible);
 
-    // label une fois : premier jour visible dans la vue
+    // label 1 fois : premier jour visible
     const labelDayById = new Map();
     visible.forEach((r) => {
       const first = (r.aDay < viewStart) ? new Date(viewStart) : new Date(r.aDay);
@@ -224,9 +225,8 @@ document.addEventListener("DOMContentLoaded", function () {
         const isStart = (ymd === r.arrivee);
         const isEnd = (ymd === r.depart);
 
-        // --- barres ---
+        // --- barres (demi-journées réelles) ---
         if (isStart && isEnd) {
-          // arrivée+départ même jour (rare) : 2 demi-barres
           const bL = document.createElement("div");
           bL.className = `coge-bar ${r.cls} coge-left coge-start`;
           bL.style.top = `${topPx}px`;
@@ -256,7 +256,6 @@ document.addEventListener("DOMContentLoaded", function () {
           label.style.width = `${LABEL_WIDTH_PX}px`;
           label.textContent = r.title;
 
-          // si jour d'arrivée PM, démarre après le blanc
           if (isStart && !isEnd) label.classList.add("coge-label-right");
           else label.classList.add("coge-label-full");
 
@@ -269,11 +268,9 @@ document.addEventListener("DOMContentLoaded", function () {
   }
 
   // =========================
-  // VACANCES -> FullCalendar events (background + 🎲)
+  // VACANCES -> events background + 🎲
   // =========================
   function addVacancesToCalendar(calendar, records) {
-    const events = [];
-
     records.forEach((rec) => {
       const f = rec.fields || {};
       const nom = f["Nom de la période"] || "Vacances scolaires";
@@ -285,7 +282,7 @@ document.addEventListener("DOMContentLoaded", function () {
         const finPlusUn = new Date(fin);
         finPlusUn.setDate(finPlusUn.getDate() + 1);
 
-        events.push({
+        calendar.addEvent({
           start: debut,
           end: finPlusUn.toISOString().split("T")[0],
           display: "background",
@@ -295,7 +292,7 @@ document.addEventListener("DOMContentLoaded", function () {
       }
 
       if (tirage) {
-        events.push({
+        calendar.addEvent({
           title: "🎲",
           start: tirage,
           allDay: true,
@@ -304,14 +301,12 @@ document.addEventListener("DOMContentLoaded", function () {
         });
       }
     });
-
-    events.forEach((e) => calendar.addEvent(e));
   }
 
   // =========================
   // FULLCALENDAR INIT
   // =========================
-  let RESA_CACHE = []; // reservations pour le rendu custom
+  let RESA_CACHE = [];
 
   const calendar = new FullCalendar.Calendar(calendarEl, {
     initialView: "dayGridMonth",
@@ -325,11 +320,11 @@ document.addEventListener("DOMContentLoaded", function () {
     },
     buttonText: { today: "Aujourd'hui", month: "Mois" },
 
-    // Tooltips pour vacances (events FullCalendar)
     eventDidMount: function (info) {
-      if (info.event.extendedProps && info.event.extendedProps.tooltip) {
+      const tt = info.event.extendedProps && info.event.extendedProps.tooltip;
+      if (tt) {
         tippy(info.el, {
-          content: info.event.extendedProps.tooltip,
+          content: tt,
           placement: "top",
           theme: "light-border",
         });
@@ -341,16 +336,14 @@ document.addEventListener("DOMContentLoaded", function () {
     },
 
     datesSet: function (info) {
-      // redessine les réservations custom quand on change de mois
       renderReservations(calendarEl, info.view.activeStart, info.view.activeEnd, RESA_CACHE);
     },
   });
 
   calendar.render();
 
-  // Appliquer un fond orange pâle à la date du jour (comme ton ancienne version)
-  const today = new Date();
-  const todayStr = today.toISOString().split("T")[0];
+  // Fond du jour
+  const todayStr = new Date().toISOString().split("T")[0];
   setTimeout(() => {
     const todayCell = document.querySelector(`.fc-daygrid-day[data-date="${todayStr}"]`);
     if (todayCell) todayCell.style.backgroundColor = "#fff3b0";
@@ -361,21 +354,18 @@ document.addEventListener("DOMContentLoaded", function () {
   // =========================
   (async () => {
     try {
-      // 1) Réservations (custom)
       const resRecords = await fetchAllAirtableRecords(reservationsUrlBase);
       RESA_CACHE = airtableToReservations(resRecords);
 
-      // 2) Vacances (FullCalendar events background)
       const vacRecords = await fetchAllAirtableRecords(vacancesUrlBase);
       addVacancesToCalendar(calendar, vacRecords);
 
-      // 3) Premier rendu sur la vue courante
       renderReservations(calendarEl, calendar.view.activeStart, calendar.view.activeEnd, RESA_CACHE);
 
-      console.log(`OK Cavalaire: ${RESA_CACHE.length} réservations chargées / ${vacRecords.length} vacances.`);
+      console.log(`OK Cavalaire: ${RESA_CACHE.length} réservations / ${vacRecords.length} vacances.`);
     } catch (e) {
       console.error("Erreur Airtable:", e);
-      alert("Erreur Airtable : vérifie la connexion / token / baseId / noms de champs.");
+      alert("Erreur Airtable : vérifie token/baseId/noms de champs/vues.");
     }
   })();
 });
