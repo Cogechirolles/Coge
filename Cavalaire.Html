@@ -5,63 +5,45 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Calendrier de réservation - Cavalaire</title>
 
-  <!-- FullCalendar (CDN) -->
+  <!-- FullCalendar -->
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/index.global.min.css">
 
+  <!-- Tippy (tooltips) -->
+  <link rel="stylesheet" href="https://unpkg.com/tippy.js@6/dist/tippy.css">
+
   <style>
-    body {
-      font-family: Arial, sans-serif;
-      margin: 18px;
-    }
+    body { font-family: Arial, sans-serif; margin: 18px; }
+    h1 { margin: 0 0 14px 0; font-size: 44px; font-weight: 800; }
 
-    h1 {
-      margin: 0 0 14px 0;
-      font-size: 44px;
-      font-weight: 800;
-    }
+    #calendar { max-width: 1100px; margin: 0 auto; }
 
-    /* Taille et rendu */
-    #calendar {
-      max-width: 1100px;
-      margin: 0 auto;
-    }
+    /* Fond doux + bordures */
+    .fc .fc-daygrid-day-frame { background: #fbf6df; }
+    .fc-theme-standard td, .fc-theme-standard th { border-color: #d9d9d9; }
 
-    /* Fond “doux” (comme ta capture) */
-    .fc .fc-daygrid-day-frame {
-      background: #fbf6df;
-    }
-    .fc-theme-standard td, .fc-theme-standard th {
-      border-color: #d9d9d9;
-    }
-
-    /* ======== Demi-journées dans chaque case jour ======== */
+    /* --- Demi-journées dans chaque case --- */
     .coge-halves {
       position: absolute;
-      left: 0;
-      right: 0;
-      top: 22px;       /* sous le numéro du jour */
-      bottom: 0;
+      left: 0; right: 0;
+      top: 22px; bottom: 0;  /* sous le numéro du jour */
       display: flex;
       flex-direction: column;
-      gap: 0;
-      pointer-events: none; /* important : pas de clic */
+      pointer-events: none;
     }
-
     .coge-half {
       flex: 1;
-      border-top: 1px solid rgba(0,0,0,0.06);
+      border-top: 1px solid rgba(0,0,0,0.07);
       position: relative;
       overflow: hidden;
+      padding: 0;
     }
-
-    /* optionnel : ligne verticale au milieu (pour “sentir” AM/PM) */
     .coge-half + .coge-half {
-      border-top: 1px solid rgba(0,0,0,0.10);
+      border-top: 1px solid rgba(0,0,0,0.12);
     }
 
-    /* ======== “Barre” réservation (collée) ======== */
+    /* --- Barres custom (collées) --- */
     .coge-bar {
-      pointer-events: none;
+      pointer-events: auto; /* pour tooltip */
       font-size: 12px;
       line-height: 1.1;
       padding: 2px 6px;
@@ -69,32 +51,24 @@
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
-      border-radius: 0;
-      display: block;
 
-      /* on “déborde” un peu pour coller aux bords des cellules */
+      display: block;
       width: calc(100% + 2px);
       margin-left: -1px;
       margin-right: -1px;
     }
-
-    /* extrémités arrondies */
     .coge-start { border-radius: 8px 0 0 8px; }
     .coge-end   { border-radius: 0 8px 8px 0; }
     .coge-middle{ border-radius: 0; }
 
-    /* couleurs (comme ta légende) */
-    .coge-attente { background: #8ecae6; color: #0b2233; }
-    .coge-validee { background: #8ee28e; color: #0b2a0b; }
-    .coge-refusee { background: #f2a3a3; color: #3b0b0b; }
+    /* Couleurs (statut) */
+    .coge-attente { background: #add8e6; color: #0b2233; }
+    .coge-validee { background: #a8e6a2; color: #0b2a0b; }
+    .coge-refusee { background: #f7b2b0; color: #3b0b0b; }
 
-    /* ======== On cache le rendu “barres” natif FullCalendar ======== */
-    .fc-daygrid-event-harness,
-    .fc-daygrid-event {
-      display: none !important;
-    }
+    /* On cache UNIQUEMENT le rendu natif des réservations (pas les backgrounds) */
+    .coge-hide-native { display: none !important; }
 
-    /* Légende */
     .legend {
       max-width: 1100px;
       margin: 14px auto 0 auto;
@@ -114,7 +88,6 @@
 
 <body>
   <h1>Calendrier de réservation - Cavalaire</h1>
-
   <div id="calendar"></div>
 
   <div class="legend">
@@ -123,8 +96,11 @@
     <span class="coge-refusee">Réservation Refusée</span>
   </div>
 
-  <!-- FullCalendar -->
+  <!-- Librairies -->
   <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/index.global.min.js"></script>
+  <script src="https://unpkg.com/@popperjs/core@2"></script>
+  <script src="https://unpkg.com/tippy.js@6"></script>
+
   <!-- Ton code -->
   <script src="Cavalaire.js"></script>
 </body>
