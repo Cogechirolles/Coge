@@ -1,186 +1,235 @@
-document.addEventListener("DOMContentLoaded", function () {
-  const calendarEl = document.getElementById("calendar");
+/* =========================
+   Cavalaire.js (COGE)
+   Vue mois + demi-journées
+   Arrivée 12:00 -> Départ 12:00 (jour de sortie)
+   ========================= */
 
-  const token = "pat0NPQWRy7XD1hVk.1325bef1bcbdd202035cedcf62ebb69835ee997bfd5864b53e6224df2f596e6e";
-  const baseId = "appBJ1MeKJnAOKwoy";
+(function () {
+  // ====== 1) TES RÉSERVATIONS (à remplacer par tes vraies données) ======
+  // Convention : depart = jour de sortie (départ à midi)
+  // Exemple : arrivee "2025-08-02", depart "2025-08-09" => occupe du 02 12:00 au 09 12:00
+  const RESERVATIONS = [
+    { nom: "SCHWARTZ Sébastien", arrivee: "2025-07-28", depart: "2025-08-04", statut: "Validée" },
+    { nom: "MOURIER Alexandre",  arrivee: "2025-08-04", depart: "2025-08-11", statut: "Validée" },
+    { nom: "VITIELLO Sébastien", arrivee: "2025-08-11", depart: "2025-08-18", statut: "Validée" },
+    { nom: "RACHEL Florent",     arrivee: "2025-08-18", depart: "2025-08-25", statut: "Validée" },
+    { nom: "ROLLAND Camille",    arrivee: "2025-08-25", depart: "2025-09-01", statut: "Validée" },
 
-  const reservationsUrl = `https://api.airtable.com/v0/${baseId}/Réservations?pageSize=100&filterByFormula=${encodeURIComponent(
-    `{Appartement}="Cavalaire"` 
-  )}&view=Grid%20view`;
+    // Pour tester les couleurs :
+    // { nom: "TEST Attente", arrivee: "2025-08-10", depart: "2025-08-12", statut: "En attente" },
+    // { nom: "TEST Refus",   arrivee: "2025-08-20", depart: "2025-08-22", statut: "Refusée" },
+  ];
 
-  const vacancesUrl = `https://api.airtable.com/v0/${baseId}/Vacances%20scolaires?pageSize=100`;
-
-  const calendar = new FullCalendar.Calendar(calendarEl, {
-    initialView: "dayGridMonth",
-    locale: "fr",
-    firstDay: 1,
-    height: "auto",
-    headerToolbar: {
-      left: "prev,next today",
-      center: "title",
-      right: "dayGridMonth",
-    },
-    events: [],
-    buttonText: {
-      today: "Aujourd'hui",
-      month: "Mois",
-    },
-    allDayText: "Toute la journée",
-    eventTimeFormat: {
-      hour: "2-digit",
-      minute: "2-digit",
-      meridiem: false
-    },
-    eventLabelText: "Réservation",
-    eventDidMount: function(info) {
-      if (info.event.extendedProps.tooltip) {
-        // Ajouter une info-bulle personnalisée
-        tippy(info.el, {
-          content: info.event.extendedProps.tooltip,
-          placement: 'top',
-          theme: 'light-border',
-        });
-      }
-    }
-  });
-
-  calendar.render();
-
-  // Appliquer un fond orange pâle à la date du jour après le rendu du calendrier
-  const today = new Date();
-  const todayStr = today.toISOString().split('T')[0]; // Format YYYY-MM-DD
-
-  // Attendre que le calendrier soit entièrement chargé avant de cibler la date du jour
-  setTimeout(() => {
-    const todayCell = document.querySelector(`.fc-day[data-date="${todayStr}"]`);
-    if (todayCell) {
-      todayCell.style.backgroundColor = "#fff3b0"; // Orange pâle
-    }
-  }, 100); // Délai pour s'assurer que le calendrier est bien rendu
-
-  // Fonction pour formater les dates en JJ-MM-AAAA
-  function formatDate(date) {
-    const d = new Date(date);
-    const day = String(d.getDate()).padStart(2, '0');
-    const month = String(d.getMonth() + 1).padStart(2, '0'); // Les mois commencent à 0
-    const year = d.getFullYear();
-    return `${day}-${month}-${year}`;
+  // ====== Helpers dates (locales, sans décalage UTC) ======
+  function parseDateOnly(dateStr) {
+    const [y, m, d] = dateStr.split("-").map(Number);
+    return new Date(y, m - 1, d, 0, 0, 0, 0);
+  }
+  function atHour(d, hour) {
+    const x = new Date(d);
+    x.setHours(hour, 0, 0, 0);
+    return x;
+  }
+  function addDays(d, n) {
+    const x = new Date(d);
+    x.setDate(x.getDate() + n);
+    return x;
+  }
+  function sameDay(a, b) {
+    return a.getFullYear() === b.getFullYear()
+      && a.getMonth() === b.getMonth()
+      && a.getDate() === b.getDate();
+  }
+  function statutClass(statut) {
+    const s = (statut || "").toLowerCase();
+    if (s.includes("refus")) return "coge-refusee";
+    if (s.includes("valid")) return "coge-validee";
+    return "coge-attente";
   }
 
-  // Charger les réservations
-  fetch(reservationsUrl, {
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
-  })
-    .then((response) => response.json())
-    .then((data) => {
-      const events = data.records
-        .map((record) => {
-          const fields = record.fields;
+  // ====== 2) Transformer une réservation en segments JOURNALIERS ======
+  // Segments:
+  // - start : PM du jour d'arrivée
+  // - middle: jour complet
+  // - end   : AM du jour de départ
+  function reservationToSegments(res, idx) {
+    const arrDate = parseDateOnly(res.arrivee);
+    const depDate = parseDateOnly(res.depart);
 
-          const start = fields["Date de début"];
-          const endRaw = fields["Date de fin"];
+    const startDT = atHour(arrDate, 12); // arrivée midi
+    const endDT   = atHour(depDate, 12); // départ midi
 
-          if (!start || !endRaw) {
-            console.warn("Date manquante pour l'enregistrement :", record);
-            return null;
+    if (endDT <= startDT) return [];
+
+    const colorClass = statutClass(res.statut);
+    const groupId = `res-${idx}`;
+
+    let segments = [];
+    let day = new Date(arrDate); day.setHours(0,0,0,0);
+    const lastDay = new Date(depDate); lastDay.setHours(0,0,0,0);
+
+    while (day <= lastDay) {
+      const day0  = atHour(day, 0);
+      const day12 = atHour(day, 12);
+      const next0 = atHour(addDays(day, 1), 0);
+
+      let part = "middle";
+      let segStart = day0;
+      let segEnd = next0;
+
+      if (sameDay(day, arrDate)) {
+        part = "start";
+        segStart = day12; // PM
+        segEnd = next0;
+      } else if (sameDay(day, depDate)) {
+        part = "end";
+        segStart = day0;  // AM
+        segEnd = day12;
+      }
+
+      // tronquage sécurité
+      if (segStart < startDT) segStart = startDT;
+      if (segEnd > endDT) segEnd = endDT;
+
+      if (segEnd > segStart) {
+        segments.push({
+          title: res.nom || "Réservation",
+          start: segStart,
+          end: segEnd,
+          allDay: false,
+          classNames: [colorClass],
+          extendedProps: {
+            groupId,
+            part,              // start / middle / end
+            statut: res.statut || "En attente"
           }
+        });
+      }
 
-          const end = new Date(endRaw);
-          end.setDate(end.getDate() + 1);
-
-          const nomAbonne = fields["Nom de l'abonné"] || "";
-          const nomExterieur = fields["Nom de l’Extérieur"] || "";
-          let title = nomExterieur ? `${nomExterieur} (extérieur : ${nomAbonne})` : nomAbonne;
-
-          let statut = fields["Statut de la demande"];
-          let color = "#3788d8";
-
-          if (Array.isArray(statut)) {
-            statut = statut[0];
-          }
-
-          if (statut === "Validée") {
-            color = "#a8e6a2";
-          } else if (statut === "En attente") {
-            color = "#add8e6";
-          } else if (statut === "Refusée") {
-            color = "#f7b2b0";
-          }
-
-          return {
-            title: title,
-            start: start,
-            end: end.toISOString().split("T")[0],
-            color: color,
-          };
-        })
-        .filter((event) => event !== null);
-
-      events.forEach((e) => calendar.addEvent(e));
-    })
-    .catch((error) => {
-      console.error("Erreur lors de la récupération des événements:", error);
-    });
-
-  // Charger les périodes de vacances scolaires
-  fetch(vacancesUrl, {
-    headers: {
-      Authorization: `Bearer ${token}`
+      day = addDays(day, 1);
     }
-  })
-    .then(response => response.json())
-    .then(data => {
-      const eventsVacances = [];
 
-      data.records.forEach(record => {
-        const fields = record.fields;
-        const nom = fields["Nom de la période"] || "Vacances scolaires";
-        const debut = fields["Date de début"];
-        const fin = fields["Date de fin"];
-        const tirage = fields["Date de tirage au sort"];
+    return segments;
+  }
 
-        if (debut && fin) {
-          const finPlusUn = new Date(fin);
-          finPlusUn.setDate(finPlusUn.getDate() + 1);
-
-          eventsVacances.push({
-            start: debut,
-            end: finPlusUn.toISOString().split("T")[0],
-            display: "background",
-            color: "#fff3b0",
-            tooltip: `Période : ${nom} du ${formatDate(debut)} au ${formatDate(fin)}`,
-          });
-        }
-
-        if (tirage) {
-          eventsVacances.push({
-            title: "🎲",
-            start: tirage,
-            color: "#f4a261",
-            allDay: true,
-            tooltip: `Tirage au sort : ${nom} - ${formatDate(tirage)}`
-          });
-        }
-      });
-
-      // Ajouter les événements de vacances et appliquer les info-bulles
-      eventsVacances.forEach((event) => {
-        const calendarEvent = calendar.addEvent(event);
-
-        // Ajouter info-bulle pour les événements de vacances
-        if (event.tooltip) {
-          const eventEl = calendarEvent.el;
-          tippy(eventEl, {
-            content: event.tooltip,
-            placement: 'top',
-            theme: 'light-border',
-          });
-        }
-      });
-    })
-    .catch(error => {
-      console.error("Erreur lors du chargement des vacances scolaires :", error);
+  function buildAllSegments() {
+    let out = [];
+    RESERVATIONS.forEach((r, i) => {
+      out.push(...reservationToSegments(r, i));
     });
-});
+    return out;
+  }
+
+  // ====== 3) Rendu demi-journée dans les cases ======
+  function ensureHalves(dayCellEl) {
+    const frame = dayCellEl.querySelector(".fc-daygrid-day-frame");
+    if (!frame) return;
+
+    // évite doublons
+    if (frame.querySelector(".coge-halves")) return;
+
+    frame.style.position = "relative";
+
+    const halves = document.createElement("div");
+    halves.className = "coge-halves";
+
+    const am = document.createElement("div");
+    am.className = "coge-half coge-am";
+    am.setAttribute("data-half", "AM");
+
+    const pm = document.createElement("div");
+    pm.className = "coge-half coge-pm";
+    pm.setAttribute("data-half", "PM");
+
+    halves.appendChild(am);
+    halves.appendChild(pm);
+    frame.appendChild(halves);
+  }
+
+  function renderSegmentIntoCell(info) {
+    // On place nos segments dans AM / PM / FULL
+    // - part=start  -> PM
+    // - part=end    -> AM
+    // - part=middle -> AM + PM (barre sur les deux)
+    const part = info.event.extendedProps?.part || "middle";
+    const statut = info.event.extendedProps?.statut || "En attente";
+
+    // On récupère la cellule du jour correspondant au segment
+    const dayCell = info.el.closest(".fc-daygrid-day");
+    if (!dayCell) return;
+
+    ensureHalves(dayCell);
+
+    const am = dayCell.querySelector(".coge-am");
+    const pm = dayCell.querySelector(".coge-pm");
+    if (!am || !pm) return;
+
+    const bar = document.createElement("div");
+    bar.className = "coge-bar";
+
+    // couleur
+    const cls = (info.event.classNames && info.event.classNames[0]) ? info.event.classNames[0] : "coge-attente";
+    bar.classList.add(cls);
+
+    // extrémités arrondies (pour effet “barre continue”)
+    if (part === "start") bar.classList.add("coge-start");
+    else if (part === "end") bar.classList.add("coge-end");
+    else bar.classList.add("coge-middle");
+
+    // texte : tu peux le simplifier si tu veux (ex: juste NOM)
+    bar.textContent = info.event.title;
+
+    if (part === "start") {
+      pm.appendChild(bar);
+    } else if (part === "end") {
+      am.appendChild(bar);
+    } else {
+      // middle : on met une barre dans AM et une barre dans PM
+      const bar2 = bar.cloneNode(true);
+      am.appendChild(bar);
+      pm.appendChild(bar2);
+    }
+  }
+
+  // ====== 4) Initialisation FullCalendar ======
+  document.addEventListener("DOMContentLoaded", function () {
+    const el = document.getElementById("calendar");
+    if (!el) {
+      console.error("Erreur: #calendar introuvable");
+      return;
+    }
+
+    const events = buildAllSegments();
+
+    const calendar = new FullCalendar.Calendar(el, {
+      locale: "fr",
+      firstDay: 1,
+      initialView: "dayGridMonth",
+      height: "auto",
+
+      headerToolbar: {
+        left: "prev,next today",
+        center: "title",
+        right: "dayGridMonth"
+      },
+
+      editable: false,
+      selectable: false,
+      displayEventTime: false,
+
+      events: events,
+
+      // On injecte AM/PM dans chaque case jour
+      dayCellDidMount: function (info) {
+        ensureHalves(info.el);
+      },
+
+      // On rend nos “barres” custom, et on ignore le rendu natif (caché par CSS)
+      eventDidMount: function (info) {
+        renderSegmentIntoCell(info);
+      }
+    });
+
+    calendar.render();
+  });
+})();
