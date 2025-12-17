@@ -1,10 +1,8 @@
 /* ============================================================
    COGE – Cavalaire
-   VERSION : 2025-12-17 15:40
-   (si tu ne vois pas ce log dans la console, le fichier n’est
-    PAS celui-ci → cache GitHub / navigateur)
+   VERSION : 2025-12-17 16:20
 ============================================================ */
-console.log("COGE Cavalaire JS chargé – VERSION 2025-12-17 15:40");
+console.log("COGE Cavalaire JS chargé – VERSION 2025-12-17 16:20");
 
 document.addEventListener("DOMContentLoaded", function () {
   const calendarEl = document.getElementById("calendar");
@@ -31,15 +29,41 @@ document.addEventListener("DOMContentLoaded", function () {
   const LABEL_WIDTH_PX = 420;
 
   /* ============================================================
-     HELPERS DATES (ROBUSTES)
+     HELPERS DATES (ULTRA ROBUSTES)
   ============================================================ */
-  function parseDateOnlyLocal(dateStr) {
-    if (!dateStr) return null;
-    if (typeof dateStr === "string" && dateStr.includes("T")) {
-      dateStr = dateStr.split("T")[0];
+  function parseDateOnlyLocal(value) {
+    if (!value) return null;
+
+    // Déjà une Date
+    if (value instanceof Date) {
+      return new Date(value.getFullYear(), value.getMonth(), value.getDate());
     }
-    const [y, m, d] = dateStr.split("-").map(Number);
-    return new Date(y, m - 1, d, 0, 0, 0, 0);
+
+    // Timestamp
+    if (typeof value === "number") {
+      const d = new Date(value);
+      if (isNaN(d)) return null;
+      return new Date(d.getFullYear(), d.getMonth(), d.getDate());
+    }
+
+    // String
+    if (typeof value === "string") {
+      const clean = value.includes("T") ? value.split("T")[0] : value;
+
+      if (/^\d{4}-\d{2}-\d{2}$/.test(clean)) {
+        const [y, m, d] = clean.split("-").map(Number);
+        return new Date(y, m - 1, d);
+      }
+
+      const d = new Date(value);
+      if (isNaN(d)) return null;
+      return new Date(d.getFullYear(), d.getMonth(), d.getDate());
+    }
+
+    // Fallback
+    const d = new Date(value);
+    if (isNaN(d)) return null;
+    return new Date(d.getFullYear(), d.getMonth(), d.getDate());
   }
 
   function addDays(d, n) {
@@ -58,8 +82,9 @@ document.addEventListener("DOMContentLoaded", function () {
     );
   }
 
-  function formatDateFR(dateStr) {
-    const d = parseDateOnlyLocal(dateStr);
+  function formatDateFR(value) {
+    const d = parseDateOnlyLocal(value);
+    if (!d) return "";
     return (
       String(d.getDate()).padStart(2, "0") +
       "-" +
@@ -101,9 +126,7 @@ document.addEventListener("DOMContentLoaded", function () {
   }
 
   function clearCustom(calendarRoot) {
-    calendarRoot
-      .querySelectorAll(".coge-bar, .coge-label")
-      .forEach((el) => el.remove());
+    calendarRoot.querySelectorAll(".coge-bar, .coge-label").forEach((el) => el.remove());
   }
 
   /* ============================================================
@@ -118,9 +141,7 @@ document.addEventListener("DOMContentLoaded", function () {
         headers: { Authorization: `Bearer ${token}` },
       });
 
-      if (!resp.ok) {
-        throw new Error("Airtable error " + resp.status);
-      }
+      if (!resp.ok) throw new Error("Airtable error " + resp.status);
 
       const data = await resp.json();
       if (Array.isArray(data.records)) all.push(...data.records);
@@ -137,39 +158,30 @@ document.addEventListener("DOMContentLoaded", function () {
      AIRTABLE → RÉSERVATIONS
   ============================================================ */
   function airtableToReservations(records) {
-    const out = [];
-
-    records.forEach((rec) => {
+    return records.flatMap((rec) => {
       const f = rec.fields || {};
-      const arrivee = f["Date de début"];
-      const depart = f["Date de fin"];
-      if (!arrivee || !depart) return;
-
-      const aDay = parseDateOnlyLocal(arrivee);
-      const dDay = parseDateOnlyLocal(depart);
-      if (!aDay || !dDay || dDay < aDay) return;
+      const a = parseDateOnlyLocal(f["Date de début"]);
+      const d = parseDateOnlyLocal(f["Date de fin"]);
+      if (!a || !d || d < a) return [];
 
       const nomAbonne = f["Nom de l'abonné"] || "";
-      const nomExterieur = f["Nom de l’Extérieur"] || "";
-      const title = nomExterieur
-        ? `${nomExterieur} (extérieur : ${nomAbonne})`
-        : nomAbonne;
+      const nomExt = f["Nom de l’Extérieur"] || "";
+      const title = nomExt ? `${nomExt} (extérieur : ${nomAbonne})` : nomAbonne;
 
       let statut = f["Statut de la demande"];
       if (Array.isArray(statut)) statut = statut[0];
 
-      out.push({
+      return [{
         id: rec.id,
         title: title || "(Sans nom)",
-        arrivee: toYMD(aDay),
-        depart: toYMD(dDay),
-        aDay,
-        dDay,
-        endExcl: addDays(dDay, 1),
+        arrivee: toYMD(a),
+        depart: toYMD(d),
+        aDay: a,
+        dDay: d,
+        endExcl: addDays(d, 1),
         cls: statutToClass(statut),
-      });
+      }];
     });
-    return out;
   }
 
   /* ============================================================
@@ -179,19 +191,19 @@ document.addEventListener("DOMContentLoaded", function () {
     return aStart < bEnd && bStart < aEnd;
   }
 
-  function assignLanes(resList) {
-    const sorted = [...resList].sort((x, y) => x.aDay - y.aDay);
-    const lanesEnd = [];
-    const laneById = new Map();
+  function assignLanes(list) {
+    const sorted = [...list].sort((x, y) => x.aDay - y.aDay);
+    const ends = [];
+    const map = new Map();
 
     sorted.forEach((r) => {
       let lane = 0;
-      while (lane < lanesEnd.length && lanesEnd[lane] > r.aDay) lane++;
-      if (lane === lanesEnd.length) lanesEnd.push(r.endExcl);
-      else lanesEnd[lane] = r.endExcl;
-      laneById.set(r.id, lane);
+      while (lane < ends.length && ends[lane] > r.aDay) lane++;
+      if (lane === ends.length) ends.push(r.endExcl);
+      else ends[lane] = r.endExcl;
+      map.set(r.id, lane);
     });
-    return laneById;
+    return map;
   }
 
   /* ============================================================
@@ -203,62 +215,58 @@ document.addEventListener("DOMContentLoaded", function () {
     const visible = reservations.filter((r) =>
       overlaps(r.aDay, r.endExcl, viewStart, viewEnd)
     );
-    const laneById = assignLanes(visible);
+    const lanes = assignLanes(visible);
 
-    const labelDayById = new Map();
+    const labelDay = new Map();
     visible.forEach((r) => {
       const first = r.aDay < viewStart ? viewStart : r.aDay;
-      labelDayById.set(r.id, toYMD(first));
+      labelDay.set(r.id, toYMD(first));
     });
 
     visible.forEach((r) => {
-      const lane = laneById.get(r.id);
-      const topPx = lane * (LANE_H + LANE_GAP);
+      const lane = lanes.get(r.id);
+      const top = lane * (LANE_H + LANE_GAP);
 
-      let day = new Date(r.aDay);
-      while (day <= r.dDay) {
-        if (day >= viewStart && day < viewEnd) {
-          const ymd = toYMD(day);
-          const cell = calendarRoot.querySelector(
-            `.fc-daygrid-day[data-date="${ymd}"]`
+      for (let d = new Date(r.aDay); d <= r.dDay; d = addDays(d, 1)) {
+        if (d < viewStart || d >= viewEnd) continue;
+
+        const ymd = toYMD(d);
+        const cell = calendarRoot.querySelector(
+          `.fc-daygrid-day[data-date="${ymd}"]`
+        );
+        if (!cell) continue;
+
+        ensureLayers(cell);
+        const frame = cell.querySelector(".coge-lanes");
+        const labels = cell.querySelector(".coge-label-layer");
+
+        const bar = document.createElement("div");
+        bar.className = `coge-bar ${r.cls}`;
+        bar.style.top = `${top}px`;
+
+        if (ymd === r.arrivee) bar.classList.add("coge-right", "coge-start");
+        else if (ymd === r.depart) bar.classList.add("coge-left", "coge-end");
+        else bar.classList.add("coge-full", "coge-mid");
+
+        frame.appendChild(bar);
+
+        if (labelDay.get(r.id) === ymd) {
+          const label = document.createElement("div");
+          label.className = "coge-label";
+          label.style.top = `${top}px`;
+          label.style.width = `${LABEL_WIDTH_PX}px`;
+          label.textContent = r.title;
+          label.classList.add(
+            ymd === r.arrivee ? "coge-label-right" : "coge-label-full"
           );
-          if (cell) {
-            ensureLayers(cell);
-            const frame = cell.querySelector(".coge-lanes");
-            const labelLayer = cell.querySelector(".coge-label-layer");
-
-            const bar = document.createElement("div");
-            bar.className = `coge-bar ${r.cls}`;
-            bar.style.top = `${topPx}px`;
-
-            if (ymd === r.arrivee)
-              bar.classList.add("coge-right", "coge-start");
-            else if (ymd === r.depart)
-              bar.classList.add("coge-left", "coge-end");
-            else bar.classList.add("coge-full", "coge-mid");
-
-            frame.appendChild(bar);
-
-            if (labelDayById.get(r.id) === ymd) {
-              const label = document.createElement("div");
-              label.className = "coge-label";
-              label.style.top = `${topPx}px`;
-              label.style.width = `${LABEL_WIDTH_PX}px`;
-              label.textContent = r.title;
-              if (ymd === r.arrivee)
-                label.classList.add("coge-label-right");
-              else label.classList.add("coge-label-full");
-              labelLayer.appendChild(label);
-            }
-          }
+          labels.appendChild(label);
         }
-        day = addDays(day, 1);
       }
     });
   }
 
   /* ============================================================
-     VACANCES SCOLAIRES – CORRIGÉ (PLEINE PÉRIODE)
+     VACANCES SCOLAIRES (CORRIGÉES)
   ============================================================ */
   function addVacancesToCalendar(calendar, records) {
     records.forEach((rec) => {
@@ -269,11 +277,9 @@ document.addEventListener("DOMContentLoaded", function () {
       const nom = f["Nom de la période"] || "Vacances scolaires";
 
       if (debut && fin) {
-        const endBg = toYMD(addDays(fin, 1));
-
         calendar.addEvent({
           start: toYMD(debut),
-          end: endBg,
+          end: toYMD(addDays(fin, 1)),
           display: "background",
           allDay: true,
           color: "#fff3b0",
@@ -304,12 +310,7 @@ document.addEventListener("DOMContentLoaded", function () {
     firstDay: 1,
     height: "auto",
     datesSet: (info) =>
-      renderReservations(
-        calendarEl,
-        info.view.activeStart,
-        info.view.activeEnd,
-        RESA_CACHE
-      ),
+      renderReservations(calendarEl, info.view.activeStart, info.view.activeEnd, RESA_CACHE),
   });
 
   calendar.render();
@@ -319,11 +320,14 @@ document.addEventListener("DOMContentLoaded", function () {
   ============================================================ */
   (async () => {
     try {
-      const resRecords = await fetchAllAirtableRecords(reservationsUrlBase);
-      RESA_CACHE = airtableToReservations(resRecords);
+      RESA_CACHE = airtableToReservations(
+        await fetchAllAirtableRecords(reservationsUrlBase)
+      );
 
-      const vacRecords = await fetchAllAirtableRecords(vacancesUrlBase);
-      addVacancesToCalendar(calendar, vacRecords);
+      addVacancesToCalendar(
+        calendar,
+        await fetchAllAirtableRecords(vacancesUrlBase)
+      );
 
       renderReservations(
         calendarEl,
@@ -332,9 +336,7 @@ document.addEventListener("DOMContentLoaded", function () {
         RESA_CACHE
       );
 
-      console.log(
-        `Cavalaire OK : ${RESA_CACHE.length} réservations / ${vacRecords.length} vacances`
-      );
+      console.log("Cavalaire OK – données chargées");
     } catch (e) {
       console.error("Erreur Airtable", e);
       alert("Erreur Airtable – voir console");
