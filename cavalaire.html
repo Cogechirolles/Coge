@@ -1,333 +1,123 @@
-/* ============================================================
-   COGE – Cavalaire
-   VERSION : 2025-12-17 16:35
-============================================================ */
-console.log("COGE Cavalaire JS chargé – VERSION 2025-12-17 16:35");
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Calendrier de réservation - Cavalaire</title>
 
-document.addEventListener("DOMContentLoaded", function () {
-  const calendarEl = document.getElementById("calendar");
+  <!-- FullCalendar -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/index.global.min.css">
 
-  /* ============================================================
-     CONFIG AIRTABLE
-  ============================================================ */
-  const token = "pat0NPQWRy7XD1hVk.1325bef1bcbdd202035cedcf62ebb69835ee997bfd5864b53e6224df2f596e6e";
-  const baseId = "appBJ1MeKJnAOKwoy";
+  <!-- Tippy (tooltips vacances) -->
+  <link rel="stylesheet" href="https://unpkg.com/tippy.js@6/themes/light-border.css">
 
-  const reservationsUrlBase =
-    `https://api.airtable.com/v0/${baseId}/Réservations` +
-    `?pageSize=100` +
-    `&filterByFormula=${encodeURIComponent(`{Appartement}="Cavalaire"`)}&view=Grid%20view`;
+  <style>
+    body { font-family: Arial, sans-serif; margin: 18px; }
+    h1 { margin: 0 0 14px 0; font-size: 44px; font-weight: 800; }
+    #calendar { max-width: 1100px; margin: 0 auto; }
 
-  const vacancesUrlBase =
-    `https://api.airtable.com/v0/${baseId}/Vacances%20scolaires?pageSize=100`;
+    /* Barres clippées dans la cellule */
+    .fc .fc-daygrid-day-frame { position: relative; overflow: hidden; }
+    /* Texte autorisé à déborder */
+    .fc .fc-daygrid-day { overflow: visible; }
 
-  /* ============================================================
-     PARAMÈTRES AFFICHAGE
-  ============================================================ */
-  const LANE_H = 16;
-  const LANE_GAP = 2;
-  const LABEL_WIDTH_PX = 420;
+    :root{ --lane-h: 16px; --lane-gap: 2px; }
 
-  /* ============================================================
-     HELPERS DATES (ROBUSTES)
-  ============================================================ */
-  function parseDateOnlyLocal(value) {
-    if (!value) return null;
-
-    if (value instanceof Date) {
-      return new Date(value.getFullYear(), value.getMonth(), value.getDate(), 0, 0, 0, 0);
+    /* Calque barres */
+    .coge-lanes{
+      position: absolute;
+      left: 0; right: 0;
+      top: 22px; bottom: 0;
+      pointer-events: none;
+      z-index: 5;
+      overflow: hidden;
     }
 
-    if (typeof value === "number") {
-      const d = new Date(value);
-      if (isNaN(d)) return null;
-      return new Date(d.getFullYear(), d.getMonth(), d.getDate(), 0, 0, 0, 0);
+    /* Calque labels (texte) */
+    .coge-label-layer{
+      position: absolute;
+      left: 0; right: 0;
+      top: 22px; bottom: 0;
+      pointer-events: none;
+      z-index: 20;
+      overflow: visible;
     }
 
-    if (typeof value === "string") {
-      const clean = value.includes("T") ? value.split("T")[0] : value;
-      if (/^\d{4}-\d{2}-\d{2}$/.test(clean)) {
-        const [y, m, d] = clean.split("-").map(Number);
-        return new Date(y, m - 1, d, 0, 0, 0, 0);
-      }
-      const d = new Date(value);
-      if (isNaN(d)) return null;
-      return new Date(d.getFullYear(), d.getMonth(), d.getDate(), 0, 0, 0, 0);
+    /* Barres */
+    .coge-bar{
+      position: absolute;
+      height: var(--lane-h);
+      line-height: var(--lane-h);
+      box-sizing: border-box;
+      z-index: 6;
+      pointer-events: none;
     }
+    .coge-full  { left: 0;   right: 0; }
+    .coge-left  { left: 0;   width: 50%; }   /* AM */
+    .coge-right { left: 50%; width: 50%; }   /* PM */
 
-    const d = new Date(value);
-    if (isNaN(d)) return null;
-    return new Date(d.getFullYear(), d.getMonth(), d.getDate(), 0, 0, 0, 0);
-  }
+    .coge-start { border-radius: 8px 0 0 8px; }
+    .coge-end   { border-radius: 0 8px 8px 0; }
+    .coge-mid   { border-radius: 0; }
 
-  function addDays(d, n) {
-    const x = new Date(d);
-    x.setDate(x.getDate() + n);
-    return x;
-  }
+    /* Couleurs */
+    .coge-validee { background: #a8e6a2; }
+    .coge-attente { background: #add8e6; }
+    .coge-refusee { background: #f7b2b0; }
 
-  function toYMD(d) {
-    return (
-      d.getFullYear() +
-      "-" +
-      String(d.getMonth() + 1).padStart(2, "0") +
-      "-" +
-      String(d.getDate()).padStart(2, "0")
-    );
-  }
-
-  function formatDateFR(value) {
-    const d = parseDateOnlyLocal(value);
-    if (!d) return "";
-    return (
-      String(d.getDate()).padStart(2, "0") +
-      "-" +
-      String(d.getMonth() + 1).padStart(2, "0") +
-      "-" +
-      d.getFullYear()
-    );
-  }
-
-  /* ============================================================
-     STATUT → COULEUR
-  ============================================================ */
-  function statutToClass(statut) {
-    const s = (statut || "").toLowerCase();
-    if (s.includes("valid")) return "coge-validee";
-    if (s.includes("refus")) return "coge-refusee";
-    return "coge-attente";
-  }
-
-  /* ============================================================
-     CALQUES DOM
-  ============================================================ */
-  function ensureLayers(dayCellEl) {
-    const frame = dayCellEl.querySelector(".fc-daygrid-day-frame");
-    if (!frame) return;
-
-    if (!frame.querySelector(".coge-lanes")) {
-      const lanes = document.createElement("div");
-      lanes.className = "coge-lanes";
-      frame.appendChild(lanes);
+    /* Labels */
+    .coge-label{
+      position: absolute;
+      height: var(--lane-h);
+      line-height: var(--lane-h);
+      font-size: 12px;
+      font-weight: 600;
+      white-space: nowrap;
+      z-index: 21;
+      pointer-events: none;
+      color: rgba(0,0,0,0.75);
+      width: 420px; /* large pour nom complet */
     }
+    .coge-label-full  { left: 6px; }
+    .coge-label-right { left: calc(50% + 6px); }
 
-    if (!dayCellEl.querySelector(".coge-label-layer")) {
-      dayCellEl.style.position = "relative";
-      const layer = document.createElement("div");
-      layer.className = "coge-label-layer";
-      dayCellEl.appendChild(layer);
+    /* Légende */
+    .legend {
+      max-width: 1100px;
+      margin: 14px auto 0 auto;
+      display: flex;
+      gap: 14px;
+      justify-content: center;
+      flex-wrap: wrap;
     }
-  }
-
-  function clearCustom(calendarRoot) {
-    calendarRoot.querySelectorAll(".coge-bar, .coge-label").forEach((el) => el.remove());
-  }
-
-  /* ============================================================
-     FETCH AIRTABLE (pagination)
-  ============================================================ */
-  async function fetchAllAirtableRecords(urlBase) {
-    const all = [];
-    let url = urlBase;
-
-    while (true) {
-      const resp = await fetch(url, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (!resp.ok) throw new Error("Airtable error " + resp.status);
-
-      const data = await resp.json();
-      if (Array.isArray(data.records)) all.push(...data.records);
-
-      if (data.offset) {
-        const sep = urlBase.includes("?") ? "&" : "?";
-        url = `${urlBase}${sep}offset=${encodeURIComponent(data.offset)}`;
-      } else break;
+    .legend span {
+      padding: 8px 14px;
+      border-radius: 6px;
+      font-weight: 600;
+      display: inline-block;
     }
-    return all;
-  }
+    .legend .attente { background:#add8e6; }
+    .legend .validee { background:#a8e6a2; }
+    .legend .refusee { background:#f7b2b0; }
+  </style>
+</head>
 
-  /* ============================================================
-     AIRTABLE → RÉSERVATIONS
-  ============================================================ */
-  function airtableToReservations(records) {
-    return records.flatMap((rec) => {
-      const f = rec.fields || {};
-      const a = parseDateOnlyLocal(f["Date de début"]);
-      const d = parseDateOnlyLocal(f["Date de fin"]);
-      if (!a || !d || d < a) return [];
+<body>
+  <h1>Calendrier de réservation - Cavalaire</h1>
+  <div id="calendar"></div>
 
-      const nomAbonne = f["Nom de l'abonné"] || "";
-      const nomExt = f["Nom de l’Extérieur"] || "";
-      const title = nomExt ? `${nomExt} (extérieur : ${nomAbonne})` : nomAbonne;
+  <div class="legend">
+    <span class="attente">Réservation en Attente</span>
+    <span class="validee">Réservation Validée</span>
+    <span class="refusee">Réservation Refusée</span>
+  </div>
 
-      let statut = f["Statut de la demande"];
-      if (Array.isArray(statut)) statut = statut[0];
+  <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/index.global.min.js"></script>
 
-      return [{
-        id: rec.id,
-        title: title || "(Sans nom)",
-        arrivee: toYMD(a),
-        depart: toYMD(d),
-        aDay: a,
-        dDay: d,
-        endExcl: addDays(d, 1),
-        cls: statutToClass(statut),
-      }];
-    });
-  }
+  <!-- Tippy deps -->
+  <script src="https://unpkg.com/@popperjs/core@2"></script>
+  <script src="https://unpkg.com/tippy.js@6"></script>
 
-  /* ============================================================
-     LANE ASSIGNMENT
-  ============================================================ */
-  function overlaps(aStart, aEnd, bStart, bEnd) {
-    return aStart < bEnd && bStart < aEnd;
-  }
-
-  function assignLanes(list) {
-    const sorted = [...list].sort((x, y) => x.aDay - y.aDay);
-    const ends = [];
-    const map = new Map();
-
-    sorted.forEach((r) => {
-      let lane = 0;
-      while (lane < ends.length && ends[lane] > r.aDay) lane++;
-      if (lane === ends.length) ends.push(r.endExcl);
-      else ends[lane] = r.endExcl;
-      map.set(r.id, lane);
-    });
-    return map;
-  }
-
-  /* ============================================================
-     RENDER RÉSERVATIONS
-  ============================================================ */
-  function renderReservations(calendarRoot, viewStart, viewEnd, reservations) {
-    clearCustom(calendarRoot);
-
-    const visible = reservations.filter((r) =>
-      overlaps(r.aDay, r.endExcl, viewStart, viewEnd)
-    );
-    const lanes = assignLanes(visible);
-
-    const labelDay = new Map();
-    visible.forEach((r) => {
-      const first = r.aDay < viewStart ? viewStart : r.aDay;
-      labelDay.set(r.id, toYMD(first));
-    });
-
-    visible.forEach((r) => {
-      const lane = lanes.get(r.id);
-      const top = lane * (LANE_H + LANE_GAP);
-
-      for (let d = new Date(r.aDay); d <= r.dDay; d = addDays(d, 1)) {
-        if (d < viewStart || d >= viewEnd) continue;
-
-        const ymd = toYMD(d);
-        const cell = calendarRoot.querySelector(`.fc-daygrid-day[data-date="${ymd}"]`);
-        if (!cell) continue;
-
-        ensureLayers(cell);
-        const frame = cell.querySelector(".coge-lanes");
-        const labels = cell.querySelector(".coge-label-layer");
-
-        const bar = document.createElement("div");
-        bar.className = `coge-bar ${r.cls}`;
-        bar.style.top = `${top}px`;
-
-        if (ymd === r.arrivee) bar.classList.add("coge-right", "coge-start");
-        else if (ymd === r.depart) bar.classList.add("coge-left", "coge-end");
-        else bar.classList.add("coge-full", "coge-mid");
-
-        frame.appendChild(bar);
-
-        if (labelDay.get(r.id) === ymd) {
-          const label = document.createElement("div");
-          label.className = "coge-label";
-          label.style.top = `${top}px`;
-          label.style.width = `${LABEL_WIDTH_PX}px`;
-          label.textContent = r.title;
-          label.classList.add(ymd === r.arrivee ? "coge-label-right" : "coge-label-full");
-          labels.appendChild(label);
-        }
-      }
-    });
-  }
-
-  /* ============================================================
-     VACANCES SCOLAIRES – FIX ULTIME :
-     On passe des objets Date à FullCalendar (plus de parsing)
-  ============================================================ */
-  function addVacancesToCalendar(calendar, records) {
-    let count = 0;
-
-    records.forEach((rec) => {
-      const f = rec.fields || {};
-      const nom = f["Nom de la période"] || "Vacances scolaires";
-
-      const debut = parseDateOnlyLocal(f["Date de début"]);
-      const fin = parseDateOnlyLocal(f["Date de fin"]);
-      const tirage = parseDateOnlyLocal(f["Date de tirage au sort"]);
-
-      if (debut && fin) {
-        const endExclusive = addDays(fin, 1); // end exclusif
-
-        calendar.addEvent({
-          start: debut,               // Date object
-          end: endExclusive,          // Date object
-          display: "background",
-          allDay: true,
-          color: "#fff3b0",
-          tooltip: `Période : ${nom} du ${formatDateFR(debut)} au ${formatDateFR(fin)}`,
-        });
-
-        count++;
-      }
-
-      if (tirage) {
-        calendar.addEvent({
-          title: "🎲",
-          start: tirage,              // Date object
-          allDay: true,
-          color: "#f4a261",
-          tooltip: `Tirage au sort : ${nom} - ${formatDateFR(tirage)}`,
-        });
-      }
-    });
-
-    console.log("Vacances ajoutées (background):", count);
-  }
-
-  /* ============================================================
-     FULLCALENDAR INIT
-  ============================================================ */
-  let RESA_CACHE = [];
-
-  const calendar = new FullCalendar.Calendar(calendarEl, {
-    initialView: "dayGridMonth",
-    locale: "fr",
-    firstDay: 1,
-    height: "auto",
-    datesSet: (info) =>
-      renderReservations(calendarEl, info.view.activeStart, info.view.activeEnd, RESA_CACHE),
-  });
-
-  calendar.render();
-
-  /* ============================================================
-     CHARGEMENT AIRTABLE
-  ============================================================ */
-  (async () => {
-    try {
-      RESA_CACHE = airtableToReservations(await fetchAllAirtableRecords(reservationsUrlBase));
-      addVacancesToCalendar(calendar, await fetchAllAirtableRecords(vacancesUrlBase));
-
-      renderReservations(calendarEl, calendar.view.activeStart, calendar.view.activeEnd, RESA_CACHE);
-
-      console.log("Cavalaire OK – données chargées");
-    } catch (e) {
-      console.error("Erreur Airtable", e);
-      alert("Erreur Airtable – voir console");
-    }
-  })();
-});
+  <script src="cavalaire.js"></script>
+</body>
+</html>
