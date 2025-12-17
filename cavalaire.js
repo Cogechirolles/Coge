@@ -1,42 +1,58 @@
 document.addEventListener("DOMContentLoaded", function () {
-  // ======= A REMPLACER par tes vraies valeurs (ou mets-les en window.xxx) =======
-  const token = window.AIRTABLE_TOKEN || "XXX";
-  const reservationsUrl = window.RESERVATIONS_URL || "XXX";
-  const vacancesUrl = window.VACANCES_URL || "XXX";
+  const calendarEl = document.getElementById("calendar");
 
-  // ======= Utils =======
-  function formatDate(dateStr) {
-    const [y, m, d] = dateStr.split("-").map(Number);
-    return new Date(y, m - 1, d).toLocaleDateString("fr-FR");
-  }
+  // =========================
+  // CONFIG AIRTABLE (reprend ta logique)
+  // =========================
+  const token = "pat0NPQWRy7XD1hVk.1325bef1bcbdd202035cedcf62ebb69835ee997bfd5864b53e6224df2f596e6e";
+  const baseId = "appBJ1MeKJnAOKwoy";
 
+  // Réservations Cavalaire
+  const reservationsUrlBase =
+    `https://api.airtable.com/v0/${baseId}/Réservations` +
+    `?pageSize=100` +
+    `&filterByFormula=${encodeURIComponent(`{Appartement}="Cavalaire"`)}&view=Grid%20view`;
+
+  // Vacances scolaires
+  const vacancesUrlBase =
+    `https://api.airtable.com/v0/${baseId}/Vacances%20scolaires?pageSize=100`;
+
+  // =========================
+  // PARAMS AFFICHAGE
+  // =========================
+  const LANE_H = 16;
+  const LANE_GAP = 2;
+  const LABEL_WIDTH_PX = 420;
+
+  // =========================
+  // HELPERS DATES
+  // =========================
   function parseDateOnlyLocal(dateStr) {
     const [y, m, d] = dateStr.split("-").map(Number);
     return new Date(y, m - 1, d, 0, 0, 0, 0);
-  }
-  function atHour(d, hour) {
-    const x = new Date(d);
-    x.setHours(hour, 0, 0, 0);
-    return x;
   }
   function addDays(d, n) {
     const x = new Date(d);
     x.setDate(x.getDate() + n);
     return x;
   }
-  function sameDay(a, b) {
-    return a.getFullYear() === b.getFullYear()
-      && a.getMonth() === b.getMonth()
-      && a.getDate() === b.getDate();
-  }
   function toYMD(d) {
-    // d = Date locale
     const y = d.getFullYear();
     const m = String(d.getMonth() + 1).padStart(2, "0");
     const day = String(d.getDate()).padStart(2, "0");
     return `${y}-${m}-${day}`;
   }
+  function formatDateFR(dateStr) {
+    const d = new Date(dateStr);
+    const day = String(d.getDate()).padStart(2, "0");
+    const month = String(d.getMonth() + 1).padStart(2, "0");
+    const year = d.getFullYear();
+    return `${day}-${month}-${year}`;
+  }
 
+  // =========================
+  // CLASSES COULEURS
+  // =========================
   function statutToClass(statut) {
     const s = (statut || "").toLowerCase();
     if (s.includes("valid")) return "coge-validee";
@@ -44,250 +60,322 @@ document.addEventListener("DOMContentLoaded", function () {
     return "coge-attente";
   }
 
-  // ======= On DESSINE les réservations nous-mêmes (pas d'events FC pour ça) =======
-  let reservationSegments = []; // [{date:'YYYY-MM-DD', part:'start|middle|end', title, statutClass, tooltip}]
-
-  function ensureHalves(dayCellEl) {
+  // =========================
+  // CALQUES DOM
+  // =========================
+  function ensureLayers(dayCellEl) {
     const frame = dayCellEl.querySelector(".fc-daygrid-day-frame");
     if (!frame) return;
 
-    // évite doublons
-    if (!frame.querySelector(".coge-halves")) {
-      const halves = document.createElement("div");
-      halves.className = "coge-halves";
-
-      const am = document.createElement("div");
-      am.className = "coge-half coge-am";
-
-      const pm = document.createElement("div");
-      pm.className = "coge-half coge-pm";
-
-      halves.appendChild(am);
-      halves.appendChild(pm);
-      frame.appendChild(halves);
+    if (!frame.querySelector(".coge-lanes")) {
+      const lanes = document.createElement("div");
+      lanes.className = "coge-lanes";
+      frame.appendChild(lanes);
     }
 
-    if (!frame.querySelector(".coge-full")) {
-      const full = document.createElement("div");
-      full.className = "coge-full";
-      frame.appendChild(full);
+    if (!dayCellEl.querySelector(".coge-label-layer")) {
+      dayCellEl.style.position = "relative";
+      const layer = document.createElement("div");
+      layer.className = "coge-label-layer";
+      dayCellEl.appendChild(layer);
     }
   }
 
-  function clearAllBars(calendarEl) {
-    calendarEl.querySelectorAll(".coge-bar").forEach(el => el.remove());
+  function clearCustom(calendarRoot) {
+    calendarRoot.querySelectorAll(".coge-bar, .coge-label").forEach((el) => el.remove());
   }
 
-  function renderReservationsOnView(calendarEl, viewStart, viewEnd) {
-    // Nettoie puis redessine (évite les doublons)
-    clearAllBars(calendarEl);
+  // =========================
+  // FETCH AIRTABLE (pagination offset)
+  // =========================
+  async function fetchAllAirtableRecords(urlBase) {
+    const all = [];
+    let url = urlBase;
 
-    // Pour chaque segment, on cherche la cellule du jour correspondant
-    reservationSegments.forEach(seg => {
-      // Filtre sur la plage visible (optionnel mais propre)
-      // viewStart / viewEnd sont des Dates
-      const segDate = parseDateOnlyLocal(seg.date);
-      if (segDate < viewStart || segDate >= viewEnd) return;
+    while (true) {
+      const resp = await fetch(url, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
 
-      const cell = calendarEl.querySelector(`.fc-daygrid-day[data-date="${seg.date}"]`);
-      if (!cell) return;
-
-      ensureHalves(cell);
-
-      const frame = cell.querySelector(".fc-daygrid-day-frame");
-      const am = frame.querySelector(".coge-am");
-      const pm = frame.querySelector(".coge-pm");
-      const full = frame.querySelector(".coge-full");
-
-      const bar = document.createElement("div");
-      bar.className = `coge-bar ${seg.statutClass}`;
-      if (seg.part === "start") bar.classList.add("coge-start");
-      else if (seg.part === "end") bar.classList.add("coge-end");
-      else bar.classList.add("coge-middle");
-
-      bar.textContent = seg.title;
-
-      if (seg.tooltip) {
-        tippy(bar, {
-          content: seg.tooltip,
-          placement: "top",
-          theme: "light-border",
-        });
+      if (!resp.ok) {
+        const txt = await resp.text().catch(() => "");
+        throw new Error(`Airtable error ${resp.status}: ${txt || resp.statusText}`);
       }
 
-      if (seg.part === "start") {
-        pm.appendChild(bar);   // arrivée => PM
-      } else if (seg.part === "end") {
-        am.appendChild(bar);   // départ => AM
+      const data = await resp.json();
+      if (Array.isArray(data.records)) all.push(...data.records);
+
+      if (data.offset) {
+        const sep = urlBase.includes("?") ? "&" : "?";
+        url = `${urlBase}${sep}offset=${encodeURIComponent(data.offset)}`;
       } else {
-        full.appendChild(bar); // jours pleins => une seule barre
+        break;
+      }
+    }
+
+    return all;
+  }
+
+  // =========================
+  // TRANSFORM AIRTABLE -> RESERVATIONS (pour notre rendu custom)
+  // =========================
+  function airtableToReservations(records) {
+    const out = [];
+
+    records.forEach((rec) => {
+      const f = rec.fields || {};
+
+      const arrivee = f["Date de début"];
+      const depart = f["Date de fin"];
+      if (!arrivee || !depart) return;
+
+      const aDay = parseDateOnlyLocal(arrivee);
+      const dDay = parseDateOnlyLocal(depart);
+      if (isNaN(aDay) || isNaN(dDay)) return;
+      if (dDay < aDay) return;
+
+      const nomAbonne = f["Nom de l'abonné"] || "";
+      const nomExterieur = f["Nom de l’Extérieur"] || "";
+      const title = nomExterieur ? `${nomExterieur} (extérieur : ${nomAbonne})` : nomAbonne;
+
+      let statut = f["Statut de la demande"];
+      if (Array.isArray(statut)) statut = statut[0];
+
+      out.push({
+        id: rec.id,
+        title: title || "(Sans nom)",
+        arrivee,
+        depart,
+        aDay,
+        dDay,
+        endExcl: addDays(dDay, 1), // intervalle [arrivee, depart+1)
+        cls: statutToClass(statut),
+      });
+    });
+
+    return out;
+  }
+
+  // =========================
+  // LANE ASSIGNMENT STABLE
+  // =========================
+  function overlaps(aStart, aEnd, bStart, bEnd) {
+    return aStart < bEnd && bStart < aEnd;
+  }
+
+  function assignLanes(resList) {
+    const sorted = [...resList].sort((x, y) => {
+      const ax = x.aDay.getTime(), ay = y.aDay.getTime();
+      if (ax !== ay) return ax - ay;
+      return (x.title || "").localeCompare(y.title || "");
+    });
+
+    const lanesEnd = [];
+    const laneById = new Map();
+
+    sorted.forEach((r) => {
+      let lane = 0;
+      while (lane < lanesEnd.length && !(lanesEnd[lane] <= r.aDay)) lane++;
+      if (lane === lanesEnd.length) lanesEnd.push(r.endExcl);
+      else lanesEnd[lane] = r.endExcl;
+      laneById.set(r.id, lane);
+    });
+
+    return laneById;
+  }
+
+  // =========================
+  // RENDER CUSTOM RESERVATIONS
+  // =========================
+  function renderReservations(calendarRoot, viewStart, viewEnd, reservations) {
+    clearCustom(calendarRoot);
+
+    const visible = reservations.filter((r) => overlaps(r.aDay, r.endExcl, viewStart, viewEnd));
+    const laneById = assignLanes(visible);
+
+    // label une fois : premier jour visible dans la vue
+    const labelDayById = new Map();
+    visible.forEach((r) => {
+      const first = (r.aDay < viewStart) ? new Date(viewStart) : new Date(r.aDay);
+      first.setHours(0, 0, 0, 0);
+      labelDayById.set(r.id, toYMD(first));
+    });
+
+    visible.forEach((r) => {
+      const lane = laneById.get(r.id) ?? 0;
+      const topPx = lane * (LANE_H + LANE_GAP);
+
+      let day = new Date(r.aDay); day.setHours(0, 0, 0, 0);
+      const last = new Date(r.dDay); last.setHours(0, 0, 0, 0);
+
+      while (day <= last) {
+        if (day < viewStart || day >= viewEnd) { day = addDays(day, 1); continue; }
+
+        const ymd = toYMD(day);
+        const cell = calendarRoot.querySelector(`.fc-daygrid-day[data-date="${ymd}"]`);
+        if (!cell) { day = addDays(day, 1); continue; }
+
+        ensureLayers(cell);
+
+        const frame = cell.querySelector(".fc-daygrid-day-frame");
+        const lanes = frame.querySelector(".coge-lanes");
+        const labelLayer = cell.querySelector(".coge-label-layer");
+
+        const isStart = (ymd === r.arrivee);
+        const isEnd = (ymd === r.depart);
+
+        // --- barres ---
+        if (isStart && isEnd) {
+          // arrivée+départ même jour (rare) : 2 demi-barres
+          const bL = document.createElement("div");
+          bL.className = `coge-bar ${r.cls} coge-left coge-start`;
+          bL.style.top = `${topPx}px`;
+          lanes.appendChild(bL);
+
+          const bR = document.createElement("div");
+          bR.className = `coge-bar ${r.cls} coge-right coge-end`;
+          bR.style.top = `${topPx}px`;
+          lanes.appendChild(bR);
+        } else {
+          const bar = document.createElement("div");
+          bar.className = `coge-bar ${r.cls}`;
+          bar.style.top = `${topPx}px`;
+
+          if (isStart) bar.classList.add("coge-right", "coge-start"); // arrivée PM
+          else if (isEnd) bar.classList.add("coge-left", "coge-end"); // départ AM
+          else bar.classList.add("coge-full", "coge-mid");
+
+          lanes.appendChild(bar);
+        }
+
+        // --- label (1 fois) ---
+        if (labelDayById.get(r.id) === ymd) {
+          const label = document.createElement("div");
+          label.className = "coge-label";
+          label.style.top = `${topPx}px`;
+          label.style.width = `${LABEL_WIDTH_PX}px`;
+          label.textContent = r.title;
+
+          // si jour d'arrivée PM, démarre après le blanc
+          if (isStart && !isEnd) label.classList.add("coge-label-right");
+          else label.classList.add("coge-label-full");
+
+          labelLayer.appendChild(label);
+        }
+
+        day = addDays(day, 1);
       }
     });
   }
 
-  function recordToSegments(fields) {
-    const startRaw = fields["Date de début"];
-    const endRaw = fields["Date de fin"];
-    if (!startRaw || !endRaw) return [];
+  // =========================
+  // VACANCES -> FullCalendar events (background + 🎲)
+  // =========================
+  function addVacancesToCalendar(calendar, records) {
+    const events = [];
 
-    const nomAbonne = fields["Nom de l'abonné"] || "";
-    const nomExterieur = fields["Nom de l’Extérieur"] || "";
-    const title = nomExterieur ? `${nomExterieur} (extérieur : ${nomAbonne})` : nomAbonne;
+    records.forEach((rec) => {
+      const f = rec.fields || {};
+      const nom = f["Nom de la période"] || "Vacances scolaires";
+      const debut = f["Date de début"];
+      const fin = f["Date de fin"];
+      const tirage = f["Date de tirage au sort"];
 
-    let statut = fields["Statut de la demande"];
-    if (Array.isArray(statut)) statut = statut[0];
+      if (debut && fin) {
+        const finPlusUn = new Date(fin);
+        finPlusUn.setDate(finPlusUn.getDate() + 1);
 
-    const statutClass = statutToClass(statut);
+        events.push({
+          start: debut,
+          end: finPlusUn.toISOString().split("T")[0],
+          display: "background",
+          color: "#fff3b0",
+          tooltip: `Période : ${nom} du ${formatDateFR(debut)} au ${formatDateFR(fin)}`,
+        });
+      }
 
-    // Convention confirmée : Date de fin = jour de sortie (départ midi)
-    // période occupée = [arrivée 12:00 ; départ 12:00)
-    const arrDate = parseDateOnlyLocal(startRaw);
-    const depDate = parseDateOnlyLocal(endRaw);
+      if (tirage) {
+        events.push({
+          title: "🎲",
+          start: tirage,
+          allDay: true,
+          color: "#f4a261",
+          tooltip: `Tirage au sort : ${nom} - ${formatDateFR(tirage)}`,
+        });
+      }
+    });
 
-    const startDT = atHour(arrDate, 12);
-    const endDT = atHour(depDate, 12);
-
-    if (endDT <= startDT) return []; // sécurité
-
-    const tooltip =
-      `Statut : ${statut || "En attente"}<br>` +
-      `Arrivée : ${formatDate(startRaw)} (midi)<br>` +
-      `Départ : ${formatDate(endRaw)} (midi)`;
-
-    const segments = [];
-
-    let day = new Date(arrDate); day.setHours(0,0,0,0);
-    const lastDay = new Date(depDate); lastDay.setHours(0,0,0,0);
-
-    while (day <= lastDay) {
-      let part = "middle";
-      if (sameDay(day, arrDate)) part = "start";
-      else if (sameDay(day, depDate)) part = "end";
-
-      segments.push({
-        date: toYMD(day),
-        part,
-        title,
-        statutClass,
-        tooltip
-      });
-
-      day = addDays(day, 1);
-    }
-
-    return segments;
+    events.forEach((e) => calendar.addEvent(e));
   }
 
-  // ======= FullCalendar (servira surtout pour la grille + vacances + 🎲) =======
-  const calendarEl = document.getElementById("calendar");
+  // =========================
+  // FULLCALENDAR INIT
+  // =========================
+  let RESA_CACHE = []; // reservations pour le rendu custom
 
   const calendar = new FullCalendar.Calendar(calendarEl, {
+    initialView: "dayGridMonth",
     locale: "fr",
     firstDay: 1,
-    initialView: "dayGridMonth",
     height: "auto",
-
     headerToolbar: {
       left: "prev,next today",
       center: "title",
-      right: "dayGridMonth"
+      right: "dayGridMonth",
     },
+    buttonText: { today: "Aujourd'hui", month: "Mois" },
 
-    // Force le texte en français même si le locale ne charge pas
-    buttonText: {
-      today: "Aujourd'hui",
-      month: "Mois"
-    },
-
-    editable: false,
-    selectable: false,
-    displayEventTime: false,
-
-    dayCellDidMount: function (info) {
-      ensureHalves(info.el);
-    },
-
-    datesSet: function (info) {
-      // Redessine les réservations à chaque changement de mois
-      renderReservationsOnView(calendarEl, info.view.activeStart, info.view.activeEnd);
-    },
-
+    // Tooltips pour vacances (events FullCalendar)
     eventDidMount: function (info) {
-      // Tooltips sur les events FullCalendar (vacances / 🎲)
-      const tip = info.event.extendedProps?.tooltip;
-      if (tip) {
+      if (info.event.extendedProps && info.event.extendedProps.tooltip) {
         tippy(info.el, {
-          content: tip,
+          content: info.event.extendedProps.tooltip,
           placement: "top",
           theme: "light-border",
         });
       }
-    }
+    },
+
+    dayCellDidMount: function (info) {
+      ensureLayers(info.el);
+    },
+
+    datesSet: function (info) {
+      // redessine les réservations custom quand on change de mois
+      renderReservations(calendarEl, info.view.activeStart, info.view.activeEnd, RESA_CACHE);
+    },
   });
 
   calendar.render();
 
-  // ======= Charger les réservations Airtable =======
-  fetch(reservationsUrl, {
-    headers: { Authorization: `Bearer ${token}` },
-  })
-    .then(r => r.json())
-    .then(data => {
-      reservationSegments = [];
-      const records = data.records || [];
+  // Appliquer un fond orange pâle à la date du jour (comme ton ancienne version)
+  const today = new Date();
+  const todayStr = today.toISOString().split("T")[0];
+  setTimeout(() => {
+    const todayCell = document.querySelector(`.fc-daygrid-day[data-date="${todayStr}"]`);
+    if (todayCell) todayCell.style.backgroundColor = "#fff3b0";
+  }, 100);
 
-      records.forEach(record => {
-        const fields = record.fields || {};
-        reservationSegments.push(...recordToSegments(fields));
-      });
+  // =========================
+  // CHARGEMENT AIRTABLE
+  // =========================
+  (async () => {
+    try {
+      // 1) Réservations (custom)
+      const resRecords = await fetchAllAirtableRecords(reservationsUrlBase);
+      RESA_CACHE = airtableToReservations(resRecords);
 
-      // Dessine immédiatement sur la vue courante
-      renderReservationsOnView(calendarEl, calendar.view.activeStart, calendar.view.activeEnd);
-    })
-    .catch(err => console.error("Erreur réservations:", err));
+      // 2) Vacances (FullCalendar events background)
+      const vacRecords = await fetchAllAirtableRecords(vacancesUrlBase);
+      addVacancesToCalendar(calendar, vacRecords);
 
-  // ======= Charger les vacances scolaires (background) + 🎲 =======
-  fetch(vacancesUrl, {
-    headers: { Authorization: `Bearer ${token}` }
-  })
-    .then(r => r.json())
-    .then(data => {
-      const records = data.records || [];
+      // 3) Premier rendu sur la vue courante
+      renderReservations(calendarEl, calendar.view.activeStart, calendar.view.activeEnd, RESA_CACHE);
 
-      records.forEach(record => {
-        const fields = record.fields || {};
-        const nom = fields["Nom de la période"] || "Vacances scolaires";
-        const debut = fields["Date de début"];
-        const fin = fields["Date de fin"];
-        const tirage = fields["Date de tirage au sort"];
-
-        if (debut && fin) {
-          const finPlusUn = parseDateOnlyLocal(fin);
-          finPlusUn.setDate(finPlusUn.getDate() + 1);
-
-          calendar.addEvent({
-            start: debut,
-            end: finPlusUn.toISOString().split("T")[0],
-            display: "background",
-            color: "#fff3b0",
-            extendedProps: {
-              tooltip: `Période : ${nom} du ${formatDate(debut)} au ${formatDate(fin)}`
-            }
-          });
-        }
-
-        if (tirage) {
-          calendar.addEvent({
-            title: "🎲",
-            start: tirage,
-            allDay: true,
-            color: "#f4a261",
-            extendedProps: {
-              tooltip: `Tirage au sort : ${nom} - ${formatDate(tirage)}`
-            }
-          });
-        }
-      });
-    })
-    .catch(err => console.error("Erreur vacances:", err));
+      console.log(`OK Cavalaire: ${RESA_CACHE.length} réservations chargées / ${vacRecords.length} vacances.`);
+    } catch (e) {
+      console.error("Erreur Airtable:", e);
+      alert("Erreur Airtable : vérifie la connexion / token / baseId / noms de champs.");
+    }
+  })();
 });
