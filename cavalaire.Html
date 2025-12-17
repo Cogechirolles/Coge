@@ -16,11 +16,9 @@
     h1 { margin: 0 0 14px 0; font-size: 44px; font-weight: 800; }
     #calendar { max-width: 1100px; margin: 0 auto; }
 
-    /* IMPORTANT :
-       - Les barres doivent rester clippées dans chaque cellule => day-frame overflow hidden
-       - Le texte (label) doit pouvoir déborder => label-layer sur .fc-daygrid-day (overflow visible)
-    */
+    /* Barres clippées dans la cellule */
     .fc .fc-daygrid-day-frame { position: relative; overflow: hidden; }
+    /* Texte autorisé à déborder */
     .fc .fc-daygrid-day { overflow: visible; }
 
     :root{ --lane-h: 16px; --lane-gap: 2px; }
@@ -62,7 +60,7 @@
     .coge-end   { border-radius: 0 8px 8px 0; }
     .coge-mid   { border-radius: 0; }
 
-    /* Couleurs (identiques à ta version) */
+    /* Couleurs */
     .coge-validee { background: #a8e6a2; }
     .coge-attente { background: #add8e6; }
     .coge-refusee { background: #f7b2b0; }
@@ -78,12 +76,12 @@
       z-index: 21;
       pointer-events: none;
       color: rgba(0,0,0,0.75);
-      width: 420px; /* assez large pour afficher le nom en entier */
+      width: 420px; /* large pour nom complet */
     }
     .coge-label-full  { left: 6px; }
     .coge-label-right { left: calc(50% + 6px); }
 
-    /* (Option) Légende simple */
+    /* Légende */
     .legend {
       max-width: 1100px;
       margin: 14px auto 0 auto;
@@ -120,6 +118,6 @@
   <script src="https://unpkg.com/@popperjs/core@2"></script>
   <script src="https://unpkg.com/tippy.js@6"></script>
 
-  <script src="Cavalaire.js"></script>
+  <script src="cavalaire.js"></script>
 </body>
 </html>
