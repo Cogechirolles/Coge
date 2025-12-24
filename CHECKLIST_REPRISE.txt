@@ -1,0 +1,104 @@
+CHECK-LIST DE REPRISE – SYSTÈME COGE (10 MINUTES)
+===============================================
+
+OBJECTIF
+--------
+Vérifier que le système fonctionne et savoir où intervenir
+sans casser l’existant.
+
+
+ÉTAPE 1 — Vérifier que le Worker est vivant (1 minute)
+------------------------------------------------------
+
+Ouvrir dans un navigateur :
+https://coge-calendrier.cogechirolles.workers.dev/
+
+Résultat attendu :
+- message "Worker OK"
+- routes listées (/api/cavalaire, /api/serre, /api/vacances)
+- secrets présents = true
+
+Si ce n’est pas le cas :
+- aller dans Cloudflare > Compute & AI > Workers > coge-calendrier
+
+
+ÉTAPE 2 — Vérifier l’accès aux données (2 minutes)
+--------------------------------------------------
+
+Tester dans le navigateur :
+
+/api/cavalaire?pageSize=100
+/api/serre?pageSize=100
+/api/vacances?pageSize=100
+
+Résultat attendu :
+- JSON contenant "records"
+
+Si erreur :
+- 401 / AUTHENTICATION → problème de token Airtable
+- 404 / NOT_FOUND     → base / table / vue incorrecte
+- autre               → consulter le code du Worker
+
+
+ÉTAPE 3 — Vérifier les secrets Cloudflare (2 minutes)
+-----------------------------------------------------
+
+Dans Cloudflare :
+Worker > Settings > Variables > Secrets
+
+Doivent exister :
+- AIRTABLE_TOKEN  → commence par "pat..."
+- AIRTABLE_BASE   → commence par "app..."
+
+⚠️ AIRTABLE_BASE ne doit contenir QUE "appXXXX"
+(pas d’URL complète)
+
+
+ÉTAPE 4 — Vérifier les pages publiques (2 minutes)
+--------------------------------------------------
+
+Ouvrir les pages du site :
+
+- cavalaire.html
+- serre-chevalier.html
+
+Vérifier :
+- le calendrier s’affiche
+- les réservations sont visibles
+- les vacances sont en fond jaune
+- les 🎲 tirages sont visibles
+- les info-bulles apparaissent au survol
+
+
+ÉTAPE 5 — Savoir où changer quoi (2 minutes)
+--------------------------------------------
+
+Changer des données :
+- Airtable (jamais côté site)
+
+Changer l’affichage :
+- fichiers JS (cavalaire.js / serre-chevalier.js)
+
+Changer les accès aux données :
+- Cloudflare Worker (routes / vues)
+
+Ajouter un nouveau site :
+1. Nouvelle vue Airtable
+2. Nouvelle route /api/xxx dans le Worker
+3. Dupliquer un JS
+4. Dupliquer un HTML
+
+
+ÉTAPE 6 — Règles d’or (1 minute)
+--------------------------------
+
+- NE JAMAIS mettre de clé Airtable dans le JS
+- NE PAS modifier les URLs Airtable côté navigateur
+- TOUJOURS passer par le Worker
+- UTILISER les IDs (tbl..., viw...) dans le Worker
+- NE PAS modifier le rendu sans tester Cavalaire et Serre
+
+
+FIN DE CHECK-LIST
+-----------------
+Si toutes les étapes sont validées, le système est sain.

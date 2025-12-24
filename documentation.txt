@@ -1,0 +1,218 @@
+DOCUMENTATION – SYSTÈME DE CALENDRIERS DE RÉSERVATION COGE
+========================================================
+
+OBJECTIF
+--------
+Ce système permet d’afficher des calendriers de réservation en lecture seule
+(Cavalaire et Serre-Chevalier) avec :
+- demi-journées (arrivée PM / départ AM),
+- couleurs selon le statut,
+- vacances scolaires en fond jaune,
+- dates de tirage au sort (🎲),
+- info-bulles détaillées,
+
+tout en sécurisant l’accès à Airtable (aucune clé exposée côté navigateur).
+
+
+ARCHITECTURE GÉNÉRALE
+--------------------
+
+Le navigateur n’accède JAMAIS directement à Airtable.
+
+Schéma simplifié :
+
++----------------------------------+
+|  Navigateur                      |
+|  (Google Sites / GitHub Pages)   |
+|                                  |
+|  cavalaire.html                  |
+|  serre-chevalier.html            |
+|      |                           |
+|      | fetch HTTP (lecture seule)|
++------|---------------------------+
+       |
+       v
++----------------------------------+
+|  Cloudflare Worker               |
+|  Nom : coge-calendrier           |
+|                                  |
+|  - contient les secrets Airtable |
+|  - expose une API sécurisée      |
+|  - lecture seule                 |
++------|---------------------------+
+       |
+       v
++----------------------------------+
+|  Airtable                        |
+|  Base : Réservations             |
+|                                  |
+|  Tables :                        |
+|   - Réservations                 |
+|   - Vacances scolaires           |
++----------------------------------+
+
+
+CLOUDFLARE WORKER
+-----------------
+
+Nom du Worker :
+- coge-calendrier
+
+URL publique :
+- https://coge-calendrier.cogechirolles.workers.dev
+
+Rôle :
+- proxy sécurisé entre le navigateur et Airtable
+- stockage des clés Airtable (secrets)
+- transmission des données en lecture seule
+- renvoi du JSON Airtable sans modification
+
+
+ENDPOINTS DISPONIBLES
+---------------------
+
+/                    -> diagnostic du Worker
+/api/cavalaire       -> réservations Cavalaire
+/api/serre           -> réservations Serre-Chevalier
+/api/vacances        -> vacances scolaires + tirages
+
+Les paramètres Airtable standards sont supportés :
+- pageSize
+- offset
+
+Exemple :
+/api/cavalaire?pageSize=100
+
+
+SECRETS CLOUDFLARE (OBLIGATOIRES)
+--------------------------------
+
+Dans Cloudflare :
+Worker > Settings > Variables > Secrets
+
+Secrets requis :
+
+- AIRTABLE_TOKEN
+  Contenu : token Airtable "pat..."
+  Permissions : lecture seule (data.records:read)
+
+- AIRTABLE_BASE
+  Contenu : ID de base Airtable "appXXXX"
+
+ATTENTION :
+AIRTABLE_BASE doit contenir UNIQUEMENT :
+- appXXXXXXXX
+Pas d’URL complète
+Pas de tbl...
+Pas de viw...
+
+
+AIRTABLE
+--------
+
+Base utilisée :
+- Réservations
+
+Tables :
+- Réservations
+- Vacances scolaires
+
+Vues utilisées (par ID pour éviter toute erreur) :
+- Cavalaire        : viw35Boezr1lDt8SY
+- Serre-Chevalier  : viwI6hTmd5QQJb7GF
+
+
+FICHIERS CÔTÉ SITE
+------------------
+
+HTML :
+- cavalaire.html
+- serre-chevalier.html
+
+Ces fichiers sont identiques en structure.
+Seuls changent :
+- le titre
+- le texte affiché
+- le fichier JavaScript chargé
+
+
+JavaScript :
+- cavalaire.js
+- serre-chevalier.js
+
+Les scripts sont identiques en logique.
+Différences :
+- endpoint utilisé :
+    /api/cavalaire
+    /api/serre
+- filtre de sécurité sur le champ "Appartement"
+
+
+FONCTIONNEMENT DES SCRIPTS JS
+-----------------------------
+
+Chaque script :
+1. Charge les réservations via le Worker
+2. Charge les vacances via le Worker
+3. Affiche :
+   - barres demi-journées
+   - labels non chevauchants
+   - couleurs par statut
+   - fond jaune vacances
+   - icône 🎲 pour tirage au sort
+   - info-bulles (Tippy)
+
+Le rendu est STRICTEMENT IDENTIQUE à l’ancien système
+qui utilisait Airtable en direct.
+
+
+TESTS ET DIAGNOSTIC
+------------------
+
+Test du Worker :
+https://coge-calendrier.cogechirolles.workers.dev/
+
+Résultat attendu :
+- Worker OK
+- routes listées
+- secrets présents
+
+Tests des données :
+/api/cavalaire?pageSize=100
+/api/serre?pageSize=100
+/api/vacances?pageSize=100
+
+
+AJOUT D’UN NOUVEAU SITE (PROCÉDURE)
+----------------------------------
+
+1. Créer une vue Airtable dédiée
+2. Ajouter une route /api/nom dans le Worker
+3. Dupliquer un fichier JS existant
+4. Dupliquer un fichier HTML existant
+
+Aucune modification de logique n’est nécessaire.
+
+
+POINTS CLÉS À RETENIR
+--------------------
+
+- aucune clé Airtable exposée côté navigateur
+- accès lecture seule uniquement
+- architecture simple et robuste
+- code duplicable sans risque
+- solution facilement transmissible
+
+
+CONCLUSION
+----------
+
+Ce système est volontairement :
+- simple
+- lisible
+- sécurisé
+- sans serveur classique
+
+Un nouveau mainteneur peut reprendre le projet
+sans connaissance préalable d’Airtable ou de Cloudflare
+en suivant ce document.
