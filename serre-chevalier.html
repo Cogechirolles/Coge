@@ -1,59 +1,137 @@
-
 <!DOCTYPE html>
 <html lang="fr">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Calendrier de réservation - Serre-Chevalier</title>
-  <link href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/index.global.min.css" rel="stylesheet">
+  <title>Calendrier de réservation - Serre-Chevalier (local)</title>
+
+  <!-- FullCalendar -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/index.global.min.css">
+
+  <!-- Tippy (tooltips) -->
+  <link rel="stylesheet" href="https://unpkg.com/tippy.js@6/themes/light-border.css">
+
   <style>
-    body {
-      font-family: Arial, sans-serif;
-      margin: 20px;
+    body { font-family: Arial, sans-serif; margin: 18px; }
+    h1 { margin: 0 0 14px 0; font-size: 44px; font-weight: 800; }
+    #calendar { max-width: 1100px; margin: 0 auto; }
+
+    /* Barres clippées dans la cellule */
+    .fc .fc-daygrid-day-frame { position: relative; overflow: hidden; }
+    /* Texte autorisé à déborder */
+    .fc .fc-daygrid-day { overflow: visible; }
+
+    :root{ --lane-h: 16px; --lane-gap: 2px; }
+
+    /* Calque barres */
+    .coge-lanes{
+      position: absolute;
+      left: 0; right: 0;
+      top: 22px; bottom: 0;
+      z-index: 5;
+      overflow: hidden;
+      pointer-events: none; /* le conteneur ne capture pas */
     }
-    #calendar {
-      max-width: 900px;
-      margin: 0 auto;
+
+    /* Calque labels (texte) */
+    .coge-label-layer{
+      position: absolute;
+      left: 0; right: 0;
+      top: 22px; bottom: 0;
+      pointer-events: none;
+      z-index: 20;
+      overflow: visible;
     }
+
+    /* Barres (on active pointer-events pour les tooltips) */
+    .coge-bar{
+      position: absolute;
+      height: var(--lane-h);
+      line-height: var(--lane-h);
+      box-sizing: border-box;
+      z-index: 6;
+      pointer-events: auto;     /* ✅ nécessaire pour tippy */
+      cursor: help;
+    }
+    .coge-full  { left: 0;   right: 0; }
+    .coge-left  { left: 0;   width: 50%; }   /* AM */
+    .coge-right { left: 50%; width: 50%; }   /* PM */
+
+    .coge-start { border-radius: 8px 0 0 8px; }
+    .coge-end   { border-radius: 0 8px 8px 0; }
+    .coge-mid   { border-radius: 0; }
+
+    /* Couleurs réservations */
+    .coge-validee { background: #a8e6a2; }
+    .coge-attente { background: #add8e6; }
+    .coge-refusee { background: #f7b2b0; }
+
+    /* Vacances scolaires : fond jaune sur la cellule */
+    .coge-vacances{
+      background: #fff3b0 !important;
+    }
+
+    /* Labels (début uniquement) */
+    .coge-label{
+      position: absolute;
+      height: var(--lane-h);
+      line-height: var(--lane-h);
+      font-size: 12px;
+      font-weight: 600;
+      white-space: nowrap;
+      z-index: 21;
+      pointer-events: none;
+      color: rgba(0,0,0,0.75);
+      width: 520px;
+    }
+    .coge-label-full  { left: 6px; }
+    .coge-label-right { left: calc(50% + 6px); }
+
+    /* ✅ IMPORTANT : rendre les "background events" survolables (vacances) */
+    .fc-bg-event {
+      pointer-events: auto !important;
+      cursor: help;
+    }
+
+    /* Légende */
     .legend {
-      font-size: 14px;
-      margin-top: 20px;
-      text-align: center;
+      max-width: 1100px;
+      margin: 14px auto 0 auto;
+      display: flex;
+      gap: 14px;
+      justify-content: center;
+      flex-wrap: wrap;
     }
-    .legend div {
+    .legend span {
+      padding: 8px 14px;
+      border-radius: 6px;
+      font-weight: 600;
       display: inline-block;
-      margin: 0 15px;
-      padding: 5px;
-      border-radius: 5px;
     }
-    .legend .blue {
-      background-color: #add8e6;
-    }
-    .legend .green {
-      background-color: #a8e6a2;
-    }
-    .legend .red {
-      background-color: #f7b2b0;
-    }
+    .legend .vacances { background:#fff3b0; }
+    .legend .attente  { background:#add8e6; }
+    .legend .validee  { background:#a8e6a2; }
+    .legend .refusee  { background:#f7b2b0; }
   </style>
-  <link rel="stylesheet" href="https://unpkg.com/tippy.js@6/themes/light-border.css" />
-  <script src="https://unpkg.com/@popperjs/core@2"></script>
-  <script src="https://unpkg.com/tippy.js@6"></script>
 </head>
+
 <body>
   <h1>Calendrier de réservation - Serre-Chevalier</h1>
   <div id="calendar"></div>
 
   <div class="legend">
-    <div class="blue">Réservation en Attente</div>
-    <div class="green">Réservation Validée</div>
-    <div class="red">Réservation Refusée</div>
+    <span class="vacances">Vacances scolaires</span>
+    <span class="attente">Réservation en Attente</span>
+    <span class="validee">Réservation Validée</span>
+    <span class="refusee">Réservation Refusée</span>
   </div>
 
-  <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/index.global.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/locales/fr.global.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/index.global.min.js"></script>
 
-  <!-- Script spécifique à Serre-Chevalier -->
+  <!-- Tippy deps -->
+  <script src="https://unpkg.com/@popperjs/core@2"></script>
+  <script src="https://unpkg.com/tippy.js@6"></script>
+
   <script src="serre-chevalier.js"></script>
 </body>
 </html>
