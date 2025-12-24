@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Administration</title>
+  <style>
+    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; margin:0; background:#f5f6f8; }
+    header { background:#fff; padding:14px 16px; box-shadow: 0 3px 16px rgba(0,0,0,.06); display:flex; align-items:center; justify-content:space-between; gap:12px; }
+    .who { font-size:14px; color:#333; }
+    .wrap { padding:16px; max-width:980px; margin:0 auto; }
+    .card { background:#fff; border-radius:14px; box-shadow: 0 10px 30px rgba(0,0,0,.06); padding:16px; }
+    h1 { margin:0 0 10px; font-size:20px; }
+    p { margin:0 0 14px; color:#444; font-size:14px; line-height:1.4; }
+    .grid { display:grid; grid-template-columns: 1fr; gap:10px; }
+    @media (min-width: 760px){ .grid{ grid-template-columns: 1fr 1fr; } }
+    a.btn { display:block; padding:12px 12px; border-radius:12px; background:#1f6feb; color:#fff; text-decoration:none; font-size:14px; text-align:center; }
+    a.btn.secondary { background:#2dba4e; }
+    a.btn.gray { background:#6b7280; }
+    button { padding:10px 12px; border-radius:10px; border:0; background:#b00020; color:#fff; cursor:pointer; font-size:14px; }
+    .note { margin-top:12px; font-size:12px; color:#666; }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="who" id="who">Administration</div>
+    <button id="logoutBtn" type="button">Déconnexion</button>
+  </header>
+
+  <div class="wrap">
+    <div class="card">
+      <h1>Menu Administration</h1>
+      <p>Choisissez une action. (Les pages/flux ci-dessous sont à brancher sur tes écrans admin.)</p>
+
+      <div class="grid">
+        <!-- Mets ici tes pages d’admin (validation réservations, gestion clés, etc.) -->
+        <a class="btn" href="./admin-validations.html">Valider / Refuser des réservations</a>
+        <a class="btn secondary" href="./admin-cles.html">Gestion des trousseaux de clés</a>
+        <a class="btn gray" href="./admin-outils.html">Outils / Exports</a>
+        <a class="btn gray" href="./admin-aide.html">Aide</a>
+      </div>
+
+      <div class="note">
+        Astuce : tu peux garder cette page comme “hub”, et faire 1 fichier HTML par écran admin.
+      </div>
+    </div>
+  </div>
+
+  <script src="./admin-auth.js"></script>
+  <script>
+    // Protection immédiate
+    AdminAuth.requireLogin();
+
+    const admin = AdminAuth.getAdmin();
+    const who = document.getElementById("who");
+    const logoutBtn = document.getElementById("logoutBtn");
+
+    const fullName = [admin?.prenom, admin?.nom].filter(Boolean).join(" ").trim();
+    who.textContent = fullName ? `Connecté : ${fullName}` : "Connecté : Administrateur";
+
+    logoutBtn.addEventListener("click", () => {
+      AdminAuth.logout();
+      window.location.href = "./login.html";
+    });
+  </script>
+</body>
+</html>
