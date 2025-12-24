@@ -9,7 +9,8 @@
 const AdminAuth = (() => {
   // 🔧 MODIFIE CETTE URL : ton Worker Cloudflare (ou autre proxy)
   // Exemple: "https://ton-worker.example.workers.dev/admin/login"
-  const AUTH_ENDPOINT = "https://TON-WORKER-DOMAIN/admin/login";
+  const AUTH_ENDPOINT = "https://coge-admin.cogechirolles.workers.dev/admin/login";
+;
 
   const KEY_TOKEN = "admin_token";
   const KEY_ADMIN = "admin_profile";
@@ -87,3 +88,4 @@ const AdminAuth = (() => {
 
   return { isLoggedIn, getToken, getAdmin, login, logout, requireLogin, authedFetch };
 })();
+
