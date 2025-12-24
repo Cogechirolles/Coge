@@ -3,12 +3,12 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Calendrier de réservation - Cavalaire</title>
+  <title>Calendrier de réservation - Cavalaire (local)</title>
 
   <!-- FullCalendar -->
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/index.global.min.css">
 
-  <!-- Tippy (tooltips vacances) -->
+  <!-- Tippy (tooltips) -->
   <link rel="stylesheet" href="https://unpkg.com/tippy.js@6/themes/light-border.css">
 
   <style>
@@ -28,9 +28,9 @@
       position: absolute;
       left: 0; right: 0;
       top: 22px; bottom: 0;
-      pointer-events: none;
       z-index: 5;
       overflow: hidden;
+      pointer-events: none; /* le conteneur ne capture pas */
     }
 
     /* Calque labels (texte) */
@@ -43,14 +43,15 @@
       overflow: visible;
     }
 
-    /* Barres */
+    /* Barres (on active pointer-events pour les tooltips) */
     .coge-bar{
       position: absolute;
       height: var(--lane-h);
       line-height: var(--lane-h);
       box-sizing: border-box;
       z-index: 6;
-      pointer-events: none;
+      pointer-events: auto;     /* ✅ nécessaire pour tippy */
+      cursor: help;
     }
     .coge-full  { left: 0;   right: 0; }
     .coge-left  { left: 0;   width: 50%; }   /* AM */
@@ -60,12 +61,17 @@
     .coge-end   { border-radius: 0 8px 8px 0; }
     .coge-mid   { border-radius: 0; }
 
-    /* Couleurs */
+    /* Couleurs réservations */
     .coge-validee { background: #a8e6a2; }
     .coge-attente { background: #add8e6; }
     .coge-refusee { background: #f7b2b0; }
 
-    /* Labels */
+    /* Vacances scolaires : fond jaune sur la cellule */
+    .coge-vacances{
+      background: #fff3b0 !important;
+    }
+
+    /* Labels (début uniquement) */
     .coge-label{
       position: absolute;
       height: var(--lane-h);
@@ -76,10 +82,16 @@
       z-index: 21;
       pointer-events: none;
       color: rgba(0,0,0,0.75);
-      width: 420px; /* large pour nom complet */
+      width: 520px;
     }
     .coge-label-full  { left: 6px; }
     .coge-label-right { left: calc(50% + 6px); }
+
+    /* ✅ IMPORTANT : rendre les "background events" survolables (vacances) */
+    .fc-bg-event {
+      pointer-events: auto !important;
+      cursor: help;
+    }
 
     /* Légende */
     .legend {
@@ -96,9 +108,10 @@
       font-weight: 600;
       display: inline-block;
     }
-    .legend .attente { background:#add8e6; }
-    .legend .validee { background:#a8e6a2; }
-    .legend .refusee { background:#f7b2b0; }
+    .legend .vacances { background:#fff3b0; }
+    .legend .attente  { background:#add8e6; }
+    .legend .validee  { background:#a8e6a2; }
+    .legend .refusee  { background:#f7b2b0; }
   </style>
 </head>
 
@@ -107,6 +120,7 @@
   <div id="calendar"></div>
 
   <div class="legend">
+    <span class="vacances">Vacances scolaires</span>
     <span class="attente">Réservation en Attente</span>
     <span class="validee">Réservation Validée</span>
     <span class="refusee">Réservation Refusée</span>
