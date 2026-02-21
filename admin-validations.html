@@ -1,1 +1,254 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Admin — Validations</title>
+  <style>
+    :root { --pad: 14px; --r: 14px; }
+    body { font-family: system-ui,-apple-system,Segoe UI,Roboto,Arial; margin:0; background:#f5f6f8; color:#111; }
+    header { position:sticky; top:0; background:#fff; padding:12px var(--pad); box-shadow:0 3px 16px rgba(0,0,0,.06); z-index:10; }
+    .row { display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+    .spacer { flex:1; }
+    .wrap { padding: var(--pad); max-width: 980px; margin: 0 auto; }
+    .card { background:#fff; border-radius: var(--r); box-shadow:0 10px 30px rgba(0,0,0,.06); padding: 14px; margin: 10px 0; }
+    .title { font-weight: 800; }
+    .muted { color:#667085; font-size: 13px; }
+    .btn { border:0; border-radius: 12px; padding:10px 12px; cursor:pointer; font-size:14px; }
+    .btn.primary { background:#1f6feb; color:#fff; }
+    .btn.danger { background:#b00020; color:#fff; }
+    .btn.gray { background:#6b7280; color:#fff; }
+    .btn.light { background:#eef2ff; color:#111; }
+    .btn:disabled { opacity:.7; cursor:not-allowed; }
+    .grid { display:grid; grid-template-columns: 1fr; gap:10px; }
+    @media (min-width: 820px) { .grid { grid-template-columns: 1fr 1fr; } }
+    input, select { width:100%; padding:10px 12px; border-radius:12px; border:1px solid #d8dde6; font-size:14px; background:#fff; }
+    .badges { display:flex; gap:8px; flex-wrap:wrap; margin-top:10px; }
+    .badge { font-size:12px; padding:6px 10px; border-radius:999px; border:1px solid #e6e8ee; background:#fafbfc; }
+    .badge.ok { border-color:#c3f0d1; background:#f2fbf5; }
+    .badge.warn { border-color:#ffe6a7; background:#fff8e6; }
+    .badge.bad { border-color:#ffc9c9; background:#fff5f5; }
+    dialog { border:0; border-radius: 16px; width:min(760px, 92vw); box-shadow:0 30px 80px rgba(0,0,0,.25); }
+    dialog::backdrop { background: rgba(0,0,0,.35); }
+    .dlg { padding: 14px; }
+    .hr { height:1px; background:#eef0f5; margin:12px 0; }
+    .pill { font-size:12px; padding:4px 8px; border-radius:999px; border:1px solid #e6e8ee; display:inline-block; }
+    .actions { display:flex; gap:8px; flex-wrap:wrap; margin-top:10px; }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="row">
+      <div class="title">Validations</div>
+      <div class="spacer"></div>
+      <button class="btn light" id="btnBack">← Menu</button>
+      <button class="btn gray" id="btnRefresh">Rafraîchir</button>
+    </div>
+    <div class="grid" style="margin-top:10px">
+      <div>
+        <label class="muted">Appartement</label>
+        <select id="aptFilter">
+          <option value="">Tous</option>
+          <option value="Cavalaire">Cavalaire</option>
+          <option value="Serre-Chevalier">Serre-Chevalier</option>
+        </select>
+      </div>
+      <div>
+        <label class="muted">Recherche (nom / ID réservation)</label>
+        <input id="qFilter" placeholder="ex: Durand, EXT, R-2026-..." />
+      </div>
+    </div>
+    <div class="muted" id="statusMsg" style="margin-top:8px"></div>
+  </header>
 
+  <div class="wrap">
+    <div id="list"></div>
+  </div>
+
+  <dialog id="dlgConflicts">
+    <div class="dlg">
+      <div class="row">
+        <div class="title">Conflits</div>
+        <div class="spacer"></div>
+        <button class="btn light" onclick="document.getElementById('dlgConflicts').close()">Fermer</button>
+      </div>
+      <div class="hr"></div>
+      <div id="conflictBody"></div>
+    </div>
+  </dialog>
+
+  <script src="./admin-auth.js"></script>
+  <script>
+    AdminAuth.requireLogin();
+
+    const API = "https://coge-admin.cogechirolles.workers.dev";
+    const $ = (id) => document.getElementById(id);
+
+    $("btnBack").onclick = () => (window.location.href = "./admin.html");
+    $("btnRefresh").onclick = () => refresh();
+
+    function esc(s){ return String(s ?? "").replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c])); }
+    function fmtName(f){
+      const a = f["Nom de l'abonné"] || "";
+      const e = f["Nom de l'extérieur"] || "";
+      return e ? `${a} / ${e}` : a;
+    }
+    function fmtDates(f){ return `${f["Date de début"] || ""} → ${f["Date de fin"] || ""}`; }
+    function badge(text, cls){ return `<span class="badge ${cls}">${esc(text)}</span>`; }
+
+    function matchSearch(f, q){
+      if (!q) return true;
+      const qq = q.toLowerCase();
+      const hay = [
+        f["Nom de l'abonné"] || "",
+        f["Nom de l'extérieur"] || "",
+        f["ID réservation"] || "",
+        f["Appartement"] || ""
+      ].join(" ").toLowerCase();
+      return hay.includes(qq);
+    }
+
+    async function apiGet(path){
+      const r = await AdminAuth.authedFetch(API + path, { method:"GET" });
+      const data = await r.json().catch(()=>null);
+      if (!r.ok || !data || data.ok === false) throw new Error(data?.message || "Erreur API");
+      return data;
+    }
+    async function apiPost(path, body){
+      const r = await AdminAuth.authedFetch(API + path, {
+        method:"POST",
+        headers: { "Content-Type":"application/json" },
+        body: JSON.stringify(body || {})
+      });
+      const data = await r.json().catch(()=>null);
+      if (!r.ok || !data || data.ok === false) throw new Error(data?.message || "Erreur API");
+      return data;
+    }
+
+    function renderCard(item){
+      const f = item.fields || {};
+      const cv = item.conflictCountValidated || 0;
+      const cp = item.conflictCountPending || 0;
+
+      const bcv = cv ? "bad" : "ok";
+      const bcp = cp ? "warn" : "ok";
+
+      const el = document.createElement("div");
+      el.className = "card";
+      el.innerHTML = `
+        <div class="row">
+          <div class="title">${esc(f.Appartement || "")} — ${esc(fmtName(f) || "(sans nom)")}</div>
+          <div class="spacer"></div>
+          <span class="pill">${esc(f["Statut de la demande"] || "")}</span>
+        </div>
+        <div class="muted">${esc(fmtDates(f))} • Prix: ${esc(f["Prix total"] ?? "")} • ID: ${esc(f["ID réservation"] ?? "")}</div>
+        <div class="badges">
+          ${badge("Conflits validées : " + cv, bcv)}
+          ${badge("Conflits en attente : " + cp, bcp)}
+        </div>
+        <div class="actions">
+          <button class="btn light" data-act="conf">Voir conflits</button>
+          <button class="btn primary" data-act="approve">Valider</button>
+          <button class="btn light" data-act="force">Valider quand même</button>
+          <button class="btn danger" data-act="reject">Refuser</button>
+        </div>
+      `;
+
+      el.querySelector('[data-act="conf"]').onclick = () => openConflicts(item.id);
+      el.querySelector('[data-act="approve"]').onclick = () => approve(item.id, false);
+      el.querySelector('[data-act="force"]').onclick = () => approve(item.id, true);
+      el.querySelector('[data-act="reject"]').onclick = () => reject(item.id);
+
+      return el;
+    }
+
+    async function openConflicts(id){
+      $("conflictBody").innerHTML = `<div class="muted">Chargement…</div>`;
+      $("dlgConflicts").showModal();
+      const data = await apiGet(`/admin/conflicts?id=${encodeURIComponent(id)}`);
+      const t = data.target?.fields || {};
+      const list = data.conflicts || [];
+
+      let html = `
+        <div class="card">
+          <div class="title">${esc(t.Appartement || "")} — ${esc(fmtName(t) || "")}</div>
+          <div class="muted">${esc(fmtDates(t))}</div>
+        </div>
+      `;
+
+      if (!list.length) {
+        html += `<div class="card"><div class="muted">Aucun conflit ✅</div></div>`;
+      } else {
+        for (const x of list) {
+          const f = x.fields || {};
+          html += `
+            <div class="card">
+              <div class="row">
+                <div class="title">${esc(fmtName(f) || "(sans nom)")}</div>
+                <div class="spacer"></div>
+                <span class="pill">${esc(f["Statut de la demande"] || "")}</span>
+              </div>
+              <div class="muted">${esc(f.Appartement || "")} • ${esc(fmtDates(f))} • Prix: ${esc(f["Prix total"] ?? "")}</div>
+            </div>
+          `;
+        }
+      }
+      $("conflictBody").innerHTML = html;
+    }
+
+    async function approve(id, force){
+      $("statusMsg").textContent = "Validation…";
+      try {
+        const data = await apiPost("/admin/approve", { id, force });
+        if (data.blocked) {
+          alert("Validation bloquée : conflit avec une réservation VALIDÉE.\nUtilise 'Valider quand même' si le règlement le permet.");
+          return;
+        }
+        await refresh();
+      } finally {
+        $("statusMsg").textContent = "";
+      }
+    }
+
+    async function reject(id){
+      if (!confirm("Confirmer le refus ?")) return;
+      $("statusMsg").textContent = "Refus…";
+      try {
+        await apiPost("/admin/reject", { id });
+        await refresh();
+      } finally {
+        $("statusMsg").textContent = "";
+      }
+    }
+
+    async function refresh(){
+      $("statusMsg").textContent = "Chargement…";
+      const root = $("list");
+      root.innerHTML = "";
+
+      const apt = $("aptFilter").value;
+      const q = $("qFilter").value.trim();
+
+      try {
+        const data = await apiGet("/admin/pending");
+        const items = (data.pending || [])
+          .filter(x => !apt || (x.fields?.Appartement === apt))
+          .filter(x => matchSearch(x.fields || {}, q));
+
+        if (!items.length) {
+          root.innerHTML = `<div class="card"><div class="muted">Aucune demande en attente.</div></div>`;
+          return;
+        }
+
+        for (const it of items) root.appendChild(renderCard(it));
+      } catch (e) {
+        root.innerHTML = `<div class="card"><div class="muted">Erreur : ${esc(e.message || e)}</div></div>`;
+      } finally {
+        $("statusMsg").textContent = "";
+      }
+    }
+
+    refresh();
+  </script>
+</body>
+</html>
