@@ -1,16 +1,13 @@
 /* admin-auth.js
-   Auth simple via Worker/Proxy (pas de clé Airtable côté client).
-   Stockage session : sessionStorage (disparaît quand on ferme le navigateur).
+   Auth simple via Worker (pas de clé Airtable côté client).
+   Stockage session : sessionStorage.
 
-   A CONFIGURER:
-   - AUTH_ENDPOINT: l’URL de ton Worker, route /admin/login
+   A CONFIGURER :
+   - AUTH_ENDPOINT : URL du Worker route /admin/login
 */
 
 const AdminAuth = (() => {
-  // 🔧 MODIFIE CETTE URL : ton Worker Cloudflare (ou autre proxy)
-  // Exemple: "https://ton-worker.example.workers.dev/admin/login"
   const AUTH_ENDPOINT = "https://coge-admin.cogechirolles.workers.dev/admin/login";
-;
 
   const KEY_TOKEN = "admin_token";
   const KEY_ADMIN = "admin_profile";
@@ -38,44 +35,29 @@ const AdminAuth = (() => {
   }
 
   function requireLogin() {
-    if (!isLoggedIn()) {
-      window.location.href = "./login.html";
-    }
+    if (!isLoggedIn()) window.location.href = "./login.html";
   }
 
-  // Appelé par login.html
   async function login(login, password) {
-    // On appelle le Worker, lui interroge Airtable table `administrateurs`.
-    // Réponse attendue (JSON):
-    //  - success: { ok:true, token:"...", admin:{nom,prenom,email,login} }
-    //  - failure: { ok:false, message:"..." }
-
     const r = await fetch(AUTH_ENDPOINT, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      // ⚠️ Ne logue pas le password côté client
       body: JSON.stringify({ login, password }),
     });
 
     let data = null;
     try { data = await r.json(); } catch { data = null; }
 
-    if (!r.ok || !data) {
-      return { ok: false, message: "Réponse invalide du serveur." };
-    }
+    if (!r.ok || !data) return { ok: false, message: "Réponse invalide du serveur." };
+    if (!data.ok) return { ok: false, message: data.message || "Accès refusé." };
 
-    if (!data.ok) {
-      return { ok: false, message: data.message || "Accès refusé." };
-    }
-
-    // Stocke la session côté navigateur
-    sessionStorage.setItem(KEY_TOKEN, data.token || "1"); // token doit idéalement être fourni
+    // Stocke la session
+    sessionStorage.setItem(KEY_TOKEN, data.token || "1");
     sessionStorage.setItem(KEY_ADMIN, JSON.stringify(data.admin || {}));
 
     return { ok: true, admin: data.admin || {} };
   }
 
-  // Helper pour appeler d’autres routes admin du Worker avec le token
   async function authedFetch(url, options = {}) {
     const token = getToken();
     if (!token) throw new Error("Not logged in");
@@ -88,4 +70,3 @@ const AdminAuth = (() => {
 
   return { isLoggedIn, getToken, getAdmin, login, logout, requireLogin, authedFetch };
 })();
-
