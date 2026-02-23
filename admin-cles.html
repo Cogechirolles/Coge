@@ -26,6 +26,7 @@
     @media(min-width:760px){.grid{grid-template-columns:1fr 1fr}}
     label{font-size:12px;color:#555;display:block;margin-bottom:6px}
     select,input{width:100%;padding:10px;border-radius:10px;border:1px solid #d8dde6;font-size:14px;background:#fff}
+    input[readonly]{background:#f3f4f6}
     .actions{margin-top:10px;display:flex;gap:8px;flex-wrap:wrap}
     .pill{display:inline-block;padding:2px 8px;border-radius:999px;background:#f1f5f9;font-size:12px;color:#334155}
     .err{margin-top:10px;color:#b00020;font-size:13px}
@@ -48,7 +49,7 @@
     <div class="card">
       <h1>Réservations validées à venir</h1>
       <div class="muted">
-        “Remise par” et “Récupérées par” sont remplis automatiquement grâce à l’admin connecté.
+        “Remis par / Récupérées par” sont remplis automatiquement (admin connecté). Les dates restent modifiables.
       </div>
       <div id="err" class="err"></div>
       <div id="list" class="list"></div>
@@ -60,9 +61,10 @@
     AdminAuth.requireLogin();
 
     const admin = AdminAuth.getAdmin() || {};
-    const adminId = admin.Id || ""; // champ demandé: "Id"
-    document.getElementById("who").textContent =
-      `Connecté : ${(admin.prenom||"").trim()} ${(admin.nom||"").trim()}`.trim();
+    const adminId = admin.Id || "";         // champ demandé: "Id"
+    const adminName = [admin.prenom, admin.nom].filter(Boolean).join(" ").trim() || "Administrateur";
+
+    document.getElementById("who").textContent = `Connecté : ${adminName}`;
 
     const API = "https://coge-admin.cogechirolles.workers.dev";
     const listEl = document.getElementById("list");
@@ -125,16 +127,22 @@
         const start = getField(f, "Date de début");
         const end = getField(f, "Date de fin");
 
-        const priceTotal = toNumberOrEmpty(getField(f, "Prix total"));
-        const paidAmountExisting = toNumberOrEmpty(getField(f, "Montant payé"));
-
-        // Pré-remplissage: si Montant payé vide -> Prix total
-        const paidAmountPrefill = (paidAmountExisting === "" ? (priceTotal === "" ? "" : priceTotal) : paidAmountExisting);
-
         const keyset = getField(f, "Jeu de clés");
         const paid = getField(f, "Payé ?") || "";
-        const givenAt = getField(f, "Date de remise");
-        const returnAt = getField(f, "Date de récupération");
+
+        const priceTotal = toNumberOrEmpty(getField(f, "Prix total"));
+        const paidAmountExisting = toNumberOrEmpty(getField(f, "Montant payé"));
+        const paidAmountPrefill = (paidAmountExisting === "" ? (priceTotal === "" ? "" : priceTotal) : paidAmountExisting);
+
+        // Dates (à garder + modifiables)
+        const givenAt = getField(f, "Date de remise");           // YYYY-MM-DD
+        const returnAt = getField(f, "Date de récupération");    // YYYY-MM-DD
+
+        // Champs Airtable "par" sont des liens : on ne peut pas afficher le nom sans lookup.
+        // Du coup, on affiche le NOM de l’admin connecté (c’est ce que tu veux).
+        // Si la date est vide, on affiche "—".
+        const givenByText = givenAt ? adminName : "—";
+        const returnedByText = returnAt ? adminName : "—";
 
         const div = document.createElement("div");
         div.className = "item";
@@ -176,11 +184,28 @@
               <label>Prix total (info)</label>
               <input value="${priceTotal === "" ? "" : String(priceTotal)}" disabled />
             </div>
-          </div>
 
-          <div class="row" style="margin-top:10px">
-            ${givenAt ? `<span class="pill">Remise : ${fmt(givenAt)}</span>` : `<span class="pill">Remise : —</span>`}
-            ${returnAt ? `<span class="pill">Récupération : ${fmt(returnAt)}</span>` : `<span class="pill">Récupération : —</span>`}
+            <div>
+              <label>Remise le</label>
+              <input data-k="Date de remise" type="date" />
+            </div>
+
+            <div>
+              <label>Remis par</label>
+              <input data-k="Remis par (affichage)" value="${givenByText}" readonly />
+              <div class="hint">Automatique : admin connecté</div>
+            </div>
+
+            <div>
+              <label>Récupérées le</label>
+              <input data-k="Date de récupération" type="date" />
+            </div>
+
+            <div>
+              <label>Récupérées par</label>
+              <input data-k="Récupérées par (affichage)" value="${returnedByText}" readonly />
+              <div class="hint">Automatique : admin connecté</div>
+            </div>
           </div>
 
           <div class="actions">
@@ -193,29 +218,59 @@
         const selKey = div.querySelector('select[data-k="Jeu de clés"]');
         const selPaid = div.querySelector('select[data-k="Payé ?"]');
         const inpPaidAmount = div.querySelector('input[data-k="Montant payé"]');
+        const inpGivenDate = div.querySelector('input[data-k="Date de remise"]');
+        const inpReturnedDate = div.querySelector('input[data-k="Date de récupération"]');
+        const inpGivenBy = div.querySelector('input[data-k="Remis par (affichage)"]');
+        const inpReturnedBy = div.querySelector('input[data-k="Récupérées par (affichage)"]');
 
         selKey.value = keyset || "";
         selPaid.value = paid || "";
         inpPaidAmount.value = paidAmountPrefill === "" ? "" : String(paidAmountPrefill);
 
+        // Dates (type=date attend YYYY-MM-DD)
+        inpGivenDate.value = givenAt ? String(givenAt).slice(0,10) : "";
+        inpReturnedDate.value = returnAt ? String(returnAt).slice(0,10) : "";
+
+        // Mise à jour visuelle immédiate des champs "par" quand la date change
+        inpGivenDate.addEventListener("change", () => {
+          inpGivenBy.value = inpGivenDate.value ? adminName : "—";
+        });
+        inpReturnedDate.addEventListener("change", () => {
+          inpReturnedBy.value = inpReturnedDate.value ? adminName : "—";
+        });
+
         div.querySelector('[data-act="save"]').onclick = async () => {
-          await updateKeys(it.id, {
+          const patch = {
             "Jeu de clés": selKey.value || "",
             "Payé ?": selPaid.value || "",
             "Montant payé": toNumberOrZero(inpPaidAmount.value),
-          });
+            "Date de remise": inpGivenDate.value || "",
+            "Date de récupération": inpReturnedDate.value || "",
+          };
+
+          // Option A : si une date est renseignée, on enregistre aussi l'admin connecté
+          if (inpGivenDate.value) patch["Clés remise par"] = [adminId];
+          if (inpReturnedDate.value) patch["Clés récupérées par"] = [adminId];
+
+          await updateKeys(it.id, patch);
         };
 
         div.querySelector('[data-act="givenNow"]').onclick = async () => {
+          const d = todayISO();
+          inpGivenDate.value = d;
+          inpGivenBy.value = adminName;
           await updateKeys(it.id, {
-            "Date de remise": todayISO(),
+            "Date de remise": d,
             "Clés remise par": [adminId],
           });
         };
 
         div.querySelector('[data-act="returnedNow"]').onclick = async () => {
+          const d = todayISO();
+          inpReturnedDate.value = d;
+          inpReturnedBy.value = adminName;
           await updateKeys(it.id, {
-            "Date de récupération": todayISO(),
+            "Date de récupération": d,
             "Clés récupérées par": [adminId],
           });
         };
