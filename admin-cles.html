@@ -24,11 +24,12 @@
     .sub{font-size:13px;color:#444;margin-top:2px}
     .grid{display:grid;grid-template-columns:1fr;gap:10px;margin-top:10px}
     @media(min-width:760px){.grid{grid-template-columns:1fr 1fr}}
-    label{font-size:12px;color:#555}
+    label{font-size:12px;color:#555;display:block;margin-bottom:6px}
     select,input{width:100%;padding:10px;border-radius:10px;border:1px solid #d8dde6;font-size:14px;background:#fff}
     .actions{margin-top:10px;display:flex;gap:8px;flex-wrap:wrap}
     .pill{display:inline-block;padding:2px 8px;border-radius:999px;background:#f1f5f9;font-size:12px;color:#334155}
     .err{margin-top:10px;color:#b00020;font-size:13px}
+    .hint{font-size:12px;color:#666;margin-top:6px}
   </style>
 </head>
 <body>
@@ -46,7 +47,9 @@
   <div class="wrap">
     <div class="card">
       <h1>Réservations validées à venir</h1>
-      <div class="muted">Option A : le “donné par / récupéré par” est rempli automatiquement avec l’admin connecté.</div>
+      <div class="muted">
+        “Remise par” et “Récupérées par” sont remplis automatiquement grâce à l’admin connecté.
+      </div>
       <div id="err" class="err"></div>
       <div id="list" class="list"></div>
     </div>
@@ -57,7 +60,7 @@
     AdminAuth.requireLogin();
 
     const admin = AdminAuth.getAdmin() || {};
-    const adminId = admin.Id || ""; // ✅ champ demandé: "Id"
+    const adminId = admin.Id || ""; // champ demandé: "Id"
     document.getElementById("who").textContent =
       `Connecté : ${(admin.prenom||"").trim()} ${(admin.nom||"").trim()}`.trim();
 
@@ -75,6 +78,15 @@
       const v = fields?.[name];
       if (Array.isArray(v)) return v[0] ?? "";
       return v ?? "";
+    }
+    function toNumberOrEmpty(v){
+      if (v === null || v === undefined || v === "") return "";
+      const n = Number(String(v).replace(",", "."));
+      return Number.isFinite(n) ? n : "";
+    }
+    function toNumberOrZero(v){
+      const n = Number(String(v ?? "").replace(",", "."));
+      return Number.isFinite(n) ? n : 0;
     }
 
     async function load(){
@@ -113,9 +125,14 @@
         const start = getField(f, "Date de début");
         const end = getField(f, "Date de fin");
 
+        const priceTotal = toNumberOrEmpty(getField(f, "Prix total"));
+        const paidAmountExisting = toNumberOrEmpty(getField(f, "Montant payé"));
+
+        // Pré-remplissage: si Montant payé vide -> Prix total
+        const paidAmountPrefill = (paidAmountExisting === "" ? (priceTotal === "" ? "" : priceTotal) : paidAmountExisting);
+
         const keyset = getField(f, "Jeu de clés");
         const paid = getField(f, "Payé ?") || "";
-
         const givenAt = getField(f, "Date de remise");
         const returnAt = getField(f, "Date de récupération");
 
@@ -148,6 +165,17 @@
                 <option>Non</option>
               </select>
             </div>
+
+            <div>
+              <label>Montant payé</label>
+              <input data-k="Montant payé" inputmode="decimal" placeholder="ex: 40" />
+              <div class="hint">Pré-rempli avec “Prix total” si vide. Modifiable.</div>
+            </div>
+
+            <div>
+              <label>Prix total (info)</label>
+              <input value="${priceTotal === "" ? "" : String(priceTotal)}" disabled />
+            </div>
           </div>
 
           <div class="row" style="margin-top:10px">
@@ -162,30 +190,33 @@
           </div>
         `;
 
-        // set current values
         const selKey = div.querySelector('select[data-k="Jeu de clés"]');
         const selPaid = div.querySelector('select[data-k="Payé ?"]');
+        const inpPaidAmount = div.querySelector('input[data-k="Montant payé"]');
+
         selKey.value = keyset || "";
         selPaid.value = paid || "";
+        inpPaidAmount.value = paidAmountPrefill === "" ? "" : String(paidAmountPrefill);
 
         div.querySelector('[data-act="save"]').onclick = async () => {
           await updateKeys(it.id, {
             "Jeu de clés": selKey.value || "",
             "Payé ?": selPaid.value || "",
+            "Montant payé": toNumberOrZero(inpPaidAmount.value),
           });
         };
 
         div.querySelector('[data-act="givenNow"]').onclick = async () => {
           await updateKeys(it.id, {
             "Date de remise": todayISO(),
-            "Clés remise par": [adminId],     // ✅ auto (Option A)
+            "Clés remise par": [adminId],
           });
         };
 
         div.querySelector('[data-act="returnedNow"]').onclick = async () => {
           await updateKeys(it.id, {
             "Date de récupération": todayISO(),
-            "Clés récupérées par": [adminId], // ✅ auto (Option A)
+            "Clés récupérées par": [adminId],
           });
         };
 
