@@ -13,6 +13,8 @@
     .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:10px}
     button{padding:10px 12px;border-radius:10px;border:0;cursor:pointer;font-size:14px}
     button.primary{background:#1f6feb;color:#fff}
+    button.good{background:#2dba4e;color:#fff}
+    button.bad{background:#b00020;color:#fff}
     button.ghost{background:#eef2ff}
     button:disabled{opacity:.6;cursor:not-allowed}
     .muted{color:#666;font-size:13px}
@@ -25,10 +27,10 @@
     label{font-size:12px;color:#555;display:block;margin-bottom:6px}
     select,input{width:100%;padding:10px;border-radius:10px;border:1px solid #d8dde6;font-size:14px;background:#fff}
     input[readonly]{background:#f3f4f6}
-    .actions{margin-top:10px;display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
-    .hint{font-size:12px;color:#666;margin-top:6px}
+    .actions{margin-top:10px;display:flex;gap:8px;flex-wrap:wrap}
+    .pill{display:inline-block;padding:2px 8px;border-radius:999px;background:#f1f5f9;font-size:12px;color:#334155}
     .err{margin-top:10px;color:#b00020;font-size:13px}
-    .ok{margin-top:10px;color:#0a7b2b;font-size:13px}
+    .hint{font-size:12px;color:#666;margin-top:6px}
   </style>
 </head>
 <body>
@@ -47,11 +49,9 @@
     <div class="card">
       <h1>Réservations validées à venir</h1>
       <div class="muted">
-        Les champs “Remis par / Récupérées par” sont automatiques (admin connecté). Tu gardes uniquement les dates + le bouton Enregistrer.
+        “Remis par / Récupérées par” sont remplis automatiquement (admin connecté). Les dates restent modifiables.
       </div>
-
       <div id="err" class="err"></div>
-      <div id="ok" class="ok"></div>
       <div id="list" class="list"></div>
     </div>
   </div>
@@ -61,7 +61,7 @@
     AdminAuth.requireLogin();
 
     const admin = AdminAuth.getAdmin() || {};
-    const adminId = admin.Id || ""; // champ demandé: "Id"
+    const adminId = admin.Id || "";         // champ demandé: "Id"
     const adminName = [admin.prenom, admin.nom].filter(Boolean).join(" ").trim() || "Administrateur";
 
     document.getElementById("who").textContent = `Connecté : ${adminName}`;
@@ -69,10 +69,13 @@
     const API = "https://coge-admin.cogechirolles.workers.dev";
     const listEl = document.getElementById("list");
     const errEl = document.getElementById("err");
-    const okEl = document.getElementById("ok");
     const refreshBtn = document.getElementById("refreshBtn");
 
     function fmt(d){ return d ? String(d).slice(0,10).split("-").reverse().join("/") : ""; }
+    function todayISO(){
+      const dtf = new Intl.DateTimeFormat("en-CA",{ timeZone:"Europe/Paris", year:"numeric", month:"2-digit", day:"2-digit" });
+      return dtf.format(new Date());
+    }
     function getField(fields, name){
       const v = fields?.[name];
       if (Array.isArray(v)) return v[0] ?? "";
@@ -90,7 +93,6 @@
 
     async function load(){
       errEl.textContent = "";
-      okEl.textContent = "";
       listEl.innerHTML = "";
       refreshBtn.disabled = true;
       refreshBtn.textContent = "Chargement…";
@@ -98,6 +100,7 @@
         if(!adminId){
           throw new Error("Admin.Id manquant. Reconnecte-toi (login) puis réessaie.");
         }
+
         const r = await AdminAuth.authedFetch(`${API}/admin/reservations?scope=upcoming`);
         const data = await r.json();
         if(!r.ok || !data.ok) throw new Error(data.message || "Erreur API");
@@ -131,8 +134,15 @@
         const paidAmountExisting = toNumberOrEmpty(getField(f, "Montant payé"));
         const paidAmountPrefill = (paidAmountExisting === "" ? (priceTotal === "" ? "" : priceTotal) : paidAmountExisting);
 
-        const givenAt = getField(f, "Date de remise");            // YYYY-MM-DD
-        const returnAt = getField(f, "Date de récupération");     // YYYY-MM-DD
+        // Dates (à garder + modifiables)
+        const givenAt = getField(f, "Date de remise");           // YYYY-MM-DD
+        const returnAt = getField(f, "Date de récupération");    // YYYY-MM-DD
+
+        // Champs Airtable "par" sont des liens : on ne peut pas afficher le nom sans lookup.
+        // Du coup, on affiche le NOM de l’admin connecté (c’est ce que tu veux).
+        // Si la date est vide, on affiche "—".
+        const givenByText = givenAt ? adminName : "—";
+        const returnedByText = returnAt ? adminName : "—";
 
         const div = document.createElement("div");
         div.className = "item";
@@ -172,7 +182,7 @@
 
             <div>
               <label>Prix total (info)</label>
-              <input value="${priceTotal === "" ? "" : String(priceTotal)}" readonly />
+              <input value="${priceTotal === "" ? "" : String(priceTotal)}" disabled />
             </div>
 
             <div>
@@ -182,7 +192,7 @@
 
             <div>
               <label>Remis par</label>
-              <input data-k="RemisPar" value="${adminName}" readonly />
+              <input data-k="Remis par (affichage)" value="${givenByText}" readonly />
               <div class="hint">Automatique : admin connecté</div>
             </div>
 
@@ -193,13 +203,15 @@
 
             <div>
               <label>Récupérées par</label>
-              <input data-k="RecupPar" value="${adminName}" readonly />
+              <input data-k="Récupérées par (affichage)" value="${returnedByText}" readonly />
               <div class="hint">Automatique : admin connecté</div>
             </div>
           </div>
 
           <div class="actions">
             <button class="primary" data-act="save">Enregistrer</button>
+            <button class="good" data-act="givenNow">Clés remises maintenant</button>
+            <button class="bad" data-act="returnedNow">Clés récupérées maintenant</button>
           </div>
         `;
 
@@ -208,41 +220,59 @@
         const inpPaidAmount = div.querySelector('input[data-k="Montant payé"]');
         const inpGivenDate = div.querySelector('input[data-k="Date de remise"]');
         const inpReturnedDate = div.querySelector('input[data-k="Date de récupération"]');
-        const btnSave = div.querySelector('[data-act="save"]');
+        const inpGivenBy = div.querySelector('input[data-k="Remis par (affichage)"]');
+        const inpReturnedBy = div.querySelector('input[data-k="Récupérées par (affichage)"]');
 
         selKey.value = keyset || "";
         selPaid.value = paid || "";
         inpPaidAmount.value = paidAmountPrefill === "" ? "" : String(paidAmountPrefill);
 
+        // Dates (type=date attend YYYY-MM-DD)
         inpGivenDate.value = givenAt ? String(givenAt).slice(0,10) : "";
         inpReturnedDate.value = returnAt ? String(returnAt).slice(0,10) : "";
 
-        btnSave.onclick = async () => {
-          errEl.textContent = "";
-          okEl.textContent = "";
-          btnSave.disabled = true;
-          btnSave.textContent = "Enregistrement…";
-          try {
-            const patch = {
-              "Jeu de clés": selKey.value || "",
-              "Payé ?": selPaid.value || "",
-              "Montant payé": toNumberOrZero(inpPaidAmount.value),
-              "Date de remise": inpGivenDate.value || "",
-              "Date de récupération": inpReturnedDate.value || "",
-            };
+        // Mise à jour visuelle immédiate des champs "par" quand la date change
+        inpGivenDate.addEventListener("change", () => {
+          inpGivenBy.value = inpGivenDate.value ? adminName : "—";
+        });
+        inpReturnedDate.addEventListener("change", () => {
+          inpReturnedBy.value = inpReturnedDate.value ? adminName : "—";
+        });
 
-            // Si la date est renseignée -> on écrit aussi l'admin connecté (Option A)
-            if (inpGivenDate.value) patch["Clés remise par"] = [adminId];
-            if (inpReturnedDate.value) patch["Clés récupérées par"] = [adminId];
+        div.querySelector('[data-act="save"]').onclick = async () => {
+          const patch = {
+            "Jeu de clés": selKey.value || "",
+            "Payé ?": selPaid.value || "",
+            "Montant payé": toNumberOrZero(inpPaidAmount.value),
+            "Date de remise": inpGivenDate.value || "",
+            "Date de récupération": inpReturnedDate.value || "",
+          };
 
-            await updateKeys(it.id, patch);
-            okEl.textContent = "Enregistré ✅";
-          } catch (e) {
-            errEl.textContent = "Erreur : " + (e.message || e);
-          } finally {
-            btnSave.disabled = false;
-            btnSave.textContent = "Enregistrer";
-          }
+          // Option A : si une date est renseignée, on enregistre aussi l'admin connecté
+          if (inpGivenDate.value) patch["Clés remise par"] = [adminId];
+          if (inpReturnedDate.value) patch["Clés récupérées par"] = [adminId];
+
+          await updateKeys(it.id, patch);
+        };
+
+        div.querySelector('[data-act="givenNow"]').onclick = async () => {
+          const d = todayISO();
+          inpGivenDate.value = d;
+          inpGivenBy.value = adminName;
+          await updateKeys(it.id, {
+            "Date de remise": d,
+            "Clés remise par": [adminId],
+          });
+        };
+
+        div.querySelector('[data-act="returnedNow"]').onclick = async () => {
+          const d = todayISO();
+          inpReturnedDate.value = d;
+          inpReturnedBy.value = adminName;
+          await updateKeys(it.id, {
+            "Date de récupération": d,
+            "Clés récupérées par": [adminId],
+          });
         };
 
         listEl.appendChild(div);
@@ -250,15 +280,19 @@
     }
 
     async function updateKeys(id, patch){
-      const r = await AdminAuth.authedFetch(`${API}/admin/update-keys`, {
-        method:"POST",
-        headers:{ "Content-Type":"application/json" },
-        body: JSON.stringify({ id, ...patch })
-      });
-      const data = await r.json().catch(() => null);
-      if(!r.ok || !data || !data.ok) throw new Error(data?.message || "Erreur mise à jour");
-      // Recharge pour que l’écran reflète Airtable
-      await load();
+      errEl.textContent = "";
+      try{
+        const r = await AdminAuth.authedFetch(`${API}/admin/update-keys`, {
+          method:"POST",
+          headers:{ "Content-Type":"application/json" },
+          body: JSON.stringify({ id, ...patch })
+        });
+        const data = await r.json();
+        if(!r.ok || !data.ok) throw new Error(data.message || "Erreur mise à jour");
+        await load();
+      }catch(e){
+        errEl.textContent = "Erreur : " + (e.message || e);
+      }
     }
 
     refreshBtn.addEventListener("click", load);
