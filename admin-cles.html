@@ -3,475 +3,214 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Admin — Clés & Paiement</title>
+  <title>Admin — Gestion des clés</title>
   <style>
-    :root { --pad: 14px; --r: 14px; }
-    body { font-family: system-ui,-apple-system,Segoe UI,Roboto,Arial; margin:0; background:#f5f6f8; color:#111; }
-    header { position:sticky; top:0; background:#fff; padding:12px var(--pad); box-shadow:0 3px 16px rgba(0,0,0,.06); z-index:10; }
-    .row { display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
-    .spacer { flex:1; }
-    .wrap { padding: var(--pad); max-width: 980px; margin: 0 auto; }
-    .card { background:#fff; border-radius: var(--r); box-shadow:0 10px 30px rgba(0,0,0,.06); padding: 14px; margin: 10px 0; }
-    .title { font-weight: 800; }
-    .muted { color:#667085; font-size: 13px; }
-    .btn { border:0; border-radius: 12px; padding:10px 12px; cursor:pointer; font-size:14px; }
-    .btn.primary { background:#1f6feb; color:#fff; }
-    .btn.danger { background:#b00020; color:#fff; }
-    .btn.gray { background:#6b7280; color:#fff; }
-    .btn.light { background:#eef2ff; color:#111; }
-    .btn:disabled { opacity:.7; cursor:not-allowed; }
-    .grid { display:grid; grid-template-columns: 1fr; gap:10px; }
-    @media (min-width: 820px) { .grid { grid-template-columns: 1fr 1fr; } }
-    input, select { width:100%; padding:10px 12px; border-radius:12px; border:1px solid #d8dde6; font-size:14px; background:#fff; }
-    .tabs { display:flex; gap:8px; flex-wrap:wrap; margin-top:10px; }
-    .tab { padding:8px 10px; border-radius:999px; border:1px solid #d8dde6; background:#fff; cursor:pointer; font-size:14px; }
-    .tab.active { border-color:#111; }
-    dialog { border:0; border-radius: 16px; width:min(780px, 92vw); box-shadow:0 30px 80px rgba(0,0,0,.25); }
-    dialog::backdrop { background: rgba(0,0,0,.35); }
-    .dlg { padding: 14px; }
-    .hr { height:1px; background:#eef0f5; margin:12px 0; }
-    .actions { display:flex; gap:8px; flex-wrap:wrap; margin-top:10px; }
-    .pill { font-size:12px; padding:4px 8px; border-radius:999px; border:1px solid #e6e8ee; display:inline-block; }
-    .badge { font-size:12px; padding:6px 10px; border-radius:999px; border:1px solid #e6e8ee; background:#fafbfc; display:inline-block; }
-    .badge.warn { border-color:#ffe6a7; background:#fff8e6; }
+    body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;margin:0;background:#f5f6f8;}
+    header{background:#fff;padding:14px 16px;box-shadow:0 3px 16px rgba(0,0,0,.06);display:flex;align-items:center;justify-content:space-between;gap:12px;position:sticky;top:0;z-index:5}
+    .wrap{padding:16px;max-width:1050px;margin:0 auto}
+    .card{background:#fff;border-radius:14px;box-shadow:0 10px 30px rgba(0,0,0,.06);padding:14px}
+    h1{margin:0;font-size:18px}
+    .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:10px}
+    button{padding:10px 12px;border-radius:10px;border:0;cursor:pointer;font-size:14px}
+    button.primary{background:#1f6feb;color:#fff}
+    button.good{background:#2dba4e;color:#fff}
+    button.bad{background:#b00020;color:#fff}
+    button.ghost{background:#eef2ff}
+    button:disabled{opacity:.6;cursor:not-allowed}
+    .muted{color:#666;font-size:13px}
+    .list{margin-top:12px;display:grid;gap:10px}
+    .item{border:1px solid #e6e8ee;border-radius:12px;padding:12px}
+    .name{font-weight:700}
+    .sub{font-size:13px;color:#444;margin-top:2px}
+    .grid{display:grid;grid-template-columns:1fr;gap:10px;margin-top:10px}
+    @media(min-width:760px){.grid{grid-template-columns:1fr 1fr}}
+    label{font-size:12px;color:#555}
+    select,input{width:100%;padding:10px;border-radius:10px;border:1px solid #d8dde6;font-size:14px;background:#fff}
+    .actions{margin-top:10px;display:flex;gap:8px;flex-wrap:wrap}
+    .pill{display:inline-block;padding:2px 8px;border-radius:999px;background:#f1f5f9;font-size:12px;color:#334155}
+    .err{margin-top:10px;color:#b00020;font-size:13px}
   </style>
 </head>
 <body>
-<header>
-  <div class="row">
-    <div class="title">Clés & Paiement</div>
-    <div class="spacer"></div>
-    <button class="btn light" id="btnBack">← Menu</button>
-    <button class="btn gray" id="btnRefresh">Rafraîchir</button>
-  </div>
-
-  <div class="tabs" id="tabs">
-    <button class="tab active" data-scope="upcoming">Validées à venir</button>
-    <button class="tab" data-scope="ongoing">En cours</button>
-    <button class="tab" data-scope="past">Passées</button>
-  </div>
-
-  <div class="grid" style="margin-top:10px">
+  <header>
     <div>
-      <label class="muted">Appartement</label>
-      <select id="aptFilter">
-        <option value="">Tous</option>
-        <option value="Cavalaire">Cavalaire</option>
-        <option value="Serre-Chevalier">Serre-Chevalier</option>
-      </select>
+      <div style="font-weight:700">Gestion des clés</div>
+      <div class="muted" id="who"></div>
     </div>
-    <div>
-      <label class="muted">Recherche (nom / ID réservation)</label>
-      <input id="qFilter" placeholder="ex: Durand, EXT, R-2026-..." />
-    </div>
-  </div>
-
-  <div class="muted" id="statusMsg" style="margin-top:8px"></div>
-</header>
-
-<div class="wrap">
-  <div id="list"></div>
-</div>
-
-<dialog id="dlgEdit">
-  <div class="dlg">
     <div class="row">
-      <div class="title">Clés & Paiement</div>
-      <div class="spacer"></div>
-      <button class="btn light" id="btnEditClose">Fermer</button>
+      <button class="ghost" onclick="location.href='./admin.html'">← Menu</button>
+      <button id="refreshBtn" class="primary">Rafraîchir</button>
     </div>
-    <div class="muted" id="editTitle"></div>
-    <div class="hr"></div>
+  </header>
 
-    <div class="grid">
-      <div>
-        <label class="muted">Jeu de clés</label>
-        <select id="fKeyset">
-          <option value="">(vide)</option>
-          <option>Serre-Chevalier N°1</option><option>Serre-Chevalier N°2</option><option>Serre-Chevalier N°3</option>
-          <option>Cavalaire N°1</option><option>Cavalaire N°2</option><option>Cavalaire N°3</option>
-        </select>
-      </div>
-
-      <div>
-        <label class="muted">Payé ?</label>
-        <select id="fPaid">
-          <option value="">(vide)</option>
-          <option>Non</option><option>Chèque</option><option>Sumup</option>
-        </select>
-      </div>
-
-      <div>
-        <label class="muted">Clés remise par</label>
-        <input id="fGivenBy" placeholder="(champ lié Airtable) — non géré ici" disabled />
-        <div class="muted">Note : ce champ est lié à la table administrateurs. On l’ajoutera ensuite si tu veux le choisir dans l’interface.</div>
-      </div>
-
-      <div>
-        <label class="muted">Date de remise</label>
-        <input id="fGivenAt" type="date" />
-      </div>
-
-      <div>
-        <label class="muted">Clés récupérées par</label>
-        <input id="fReturnedBy" placeholder="(champ lié Airtable) — non géré ici" disabled />
-      </div>
-
-      <div>
-        <label class="muted">Date de récupération</label>
-        <input id="fReturnAt" type="date" />
-      </div>
-    </div>
-
-    <div class="actions">
-      <button class="btn primary" id="btnSaveKeys">Enregistrer</button>
-      <span class="muted" id="editMsg"></span>
-    </div>
-
-    <div class="hr"></div>
-
-    <div class="actions">
-      <button class="btn light" id="btnOpenDates">Modifier dates</button>
-      <button class="btn danger" id="btnOpenCancel">Annuler réservation</button>
+  <div class="wrap">
+    <div class="card">
+      <h1>Réservations validées à venir</h1>
+      <div class="muted">Option A : le “donné par / récupéré par” est rempli automatiquement avec l’admin connecté.</div>
+      <div id="err" class="err"></div>
+      <div id="list" class="list"></div>
     </div>
   </div>
-</dialog>
 
-<dialog id="dlgDates">
-  <div class="dlg">
-    <div class="row">
-      <div class="title">Modifier les dates</div>
-      <div class="spacer"></div>
-      <button class="btn light" id="btnDatesClose">Fermer</button>
-    </div>
-    <div class="muted">Rappel : départ et arrivée le même jour = OK (rotation à midi).</div>
-    <div class="hr"></div>
+  <script src="./admin-auth.js"></script>
+  <script>
+    AdminAuth.requireLogin();
 
-    <div class="grid">
-      <div>
-        <label class="muted">Date de début</label>
-        <input id="dStart" type="date" />
-      </div>
-      <div>
-        <label class="muted">Date de fin</label>
-        <input id="dEnd" type="date" />
-      </div>
-    </div>
+    const admin = AdminAuth.getAdmin() || {};
+    const adminId = admin.Id || ""; // ✅ champ demandé: "Id"
+    document.getElementById("who").textContent =
+      `Connecté : ${(admin.prenom||"").trim()} ${(admin.nom||"").trim()}`.trim();
 
-    <div class="actions">
-      <button class="btn light" id="btnCheck">Vérifier conflits</button>
-      <button class="btn primary" id="btnSaveDates">Enregistrer</button>
-      <button class="btn danger" id="btnForceDates" style="display:none">Enregistrer quand même</button>
-    </div>
-    <div id="datesMsg" class="muted" style="margin-top:8px"></div>
-    <div id="datesConflicts"></div>
-  </div>
-</dialog>
+    const API = "https://coge-admin.cogechirolles.workers.dev";
+    const listEl = document.getElementById("list");
+    const errEl = document.getElementById("err");
+    const refreshBtn = document.getElementById("refreshBtn");
 
-<dialog id="dlgCancel">
-  <div class="dlg">
-    <div class="row">
-      <div class="title">Annuler la réservation</div>
-      <div class="spacer"></div>
-      <button class="btn light" id="btnCancelClose">Fermer</button>
-    </div>
-    <div class="hr"></div>
-    <div id="cancelHint" class="badge warn" style="display:none"></div>
-    <div class="grid" style="margin-top:10px">
-      <div>
-        <label class="muted">Frais d'annulation (modifiable)</label>
-        <input id="cFees" placeholder="ex: 50% ou 120€ ou 0" />
-      </div>
-    </div>
-    <div class="actions">
-      <button class="btn danger" id="btnDoCancel">Confirmer l'annulation</button>
-      <span class="muted" id="cancelMsg"></span>
-    </div>
-  </div>
-</dialog>
+    function fmt(d){ return d ? String(d).slice(0,10).split("-").reverse().join("/") : ""; }
+    function todayISO(){
+      const dtf = new Intl.DateTimeFormat("en-CA",{ timeZone:"Europe/Paris", year:"numeric", month:"2-digit", day:"2-digit" });
+      return dtf.format(new Date());
+    }
+    function getField(fields, name){
+      const v = fields?.[name];
+      if (Array.isArray(v)) return v[0] ?? "";
+      return v ?? "";
+    }
 
-<script src="./admin-auth.js"></script>
-<script>
-  AdminAuth.requireLogin();
+    async function load(){
+      errEl.textContent = "";
+      listEl.innerHTML = "";
+      refreshBtn.disabled = true;
+      refreshBtn.textContent = "Chargement…";
+      try{
+        if(!adminId){
+          throw new Error("Admin.Id manquant. Reconnecte-toi (login) puis réessaie.");
+        }
 
-  const API = "https://coge-admin.cogechirolles.workers.dev";
-  const $ = (id) => document.getElementById(id);
+        const r = await AdminAuth.authedFetch(`${API}/admin/reservations?scope=upcoming`);
+        const data = await r.json();
+        if(!r.ok || !data.ok) throw new Error(data.message || "Erreur API");
+        render(data.reservations || []);
+      }catch(e){
+        errEl.textContent = "Erreur : " + (e.message || e);
+      }finally{
+        refreshBtn.disabled = false;
+        refreshBtn.textContent = "Rafraîchir";
+      }
+    }
 
-  let scope = "upcoming";
-  let current = null; // {id, fields}
-
-  $("btnBack").onclick = () => (window.location.href = "./admin.html");
-  $("btnRefresh").onclick = () => refresh();
-
-  document.querySelectorAll(".tab").forEach(btn => {
-    btn.onclick = () => {
-      scope = btn.dataset.scope;
-      document.querySelectorAll(".tab").forEach(x => x.classList.toggle("active", x === btn));
-      refresh();
-    };
-  });
-
-  function esc(s){ return String(s ?? "").replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c])); }
-  function fmtName(f){
-    const a = f["Nom de l'abonné"] || "";
-    const e = f["Nom de l'extérieur"] || "";
-    return e ? `${a} / ${e}` : a;
-  }
-  function fmtDates(f){ return `${f["Date de début"] || ""} → ${f["Date de fin"] || ""}`; }
-  function matchSearch(f, q){
-    if (!q) return true;
-    const qq = q.toLowerCase();
-    const hay = [
-      f["Nom de l'abonné"] || "",
-      f["Nom de l'extérieur"] || "",
-      f["ID réservation"] || "",
-      f["Appartement"] || ""
-    ].join(" ").toLowerCase();
-    return hay.includes(qq);
-  }
-
-  async function apiGet(path){
-    const r = await AdminAuth.authedFetch(API + path, { method:"GET" });
-    const data = await r.json().catch(()=>null);
-    if (!r.ok || !data || data.ok === false) throw new Error(data?.message || "Erreur API");
-    return data;
-  }
-  async function apiPost(path, body){
-    const r = await AdminAuth.authedFetch(API + path, {
-      method:"POST",
-      headers: { "Content-Type":"application/json" },
-      body: JSON.stringify(body || {})
-    });
-    const data = await r.json().catch(()=>null);
-    if (!r.ok || !data || data.ok === false) throw new Error(data?.message || "Erreur API");
-    return data;
-  }
-
-  function renderCard(item){
-    const f = item.fields || {};
-    const el = document.createElement("div");
-    el.className = "card";
-    el.innerHTML = `
-      <div class="row">
-        <div class="title">${esc(f.Appartement || "")} — ${esc(fmtName(f) || "(sans nom)")}</div>
-        <div class="spacer"></div>
-        <span class="pill">${esc(f["Statut de la demande"] || "")}</span>
-      </div>
-      <div class="muted">${esc(fmtDates(f))} • Prix: ${esc(f["Prix total"] ?? "")} • ID: ${esc(f["ID réservation"] ?? "")}</div>
-      <div class="actions">
-        <button class="btn primary" data-act="open">Ouvrir (clés/paiement)</button>
-        <button class="btn light" data-act="dates">Modifier dates</button>
-        <button class="btn danger" data-act="cancel">Annuler</button>
-      </div>
-    `;
-    el.querySelector('[data-act="open"]').onclick = () => openEdit(item);
-    el.querySelector('[data-act="dates"]').onclick = () => { openEdit(item); openDates(); };
-    el.querySelector('[data-act="cancel"]').onclick = () => { openEdit(item); openCancel(); };
-    return el;
-  }
-
-  async function refresh(){
-    $("statusMsg").textContent = "Chargement…";
-    const root = $("list");
-    root.innerHTML = "";
-
-    const apt = $("aptFilter").value;
-    const q = $("qFilter").value.trim();
-
-    try {
-      const data = await apiGet(`/admin/reservations?scope=${encodeURIComponent(scope)}&apt=${encodeURIComponent(apt)}&q=${encodeURIComponent(q)}`);
-      const items = (data.reservations || [])
-        .filter(x => !apt || (x.fields?.Appartement === apt))
-        .filter(x => matchSearch(x.fields || {}, q));
-
-      if (!items.length) {
-        root.innerHTML = `<div class="card"><div class="muted">Aucune réservation.</div></div>`;
+    function render(items){
+      if(!items.length){
+        listEl.innerHTML = `<div class="muted">Aucune réservation validée à venir.</div>`;
         return;
       }
 
-      for (const it of items) root.appendChild(renderCard(it));
-    } catch (e) {
-      root.innerHTML = `<div class="card"><div class="muted">Erreur : ${esc(e.message || e)}</div></div>`;
-    } finally {
-      $("statusMsg").textContent = "";
-    }
-  }
+      for(const it of items){
+        const f = it.fields || {};
+        const abonne = getField(f, "Nom de l'abonné") || "(sans nom)";
+        const ext = getField(f, "Nom de l’Extérieur");
+        const apt = getField(f, "Appartement");
+        const start = getField(f, "Date de début");
+        const end = getField(f, "Date de fin");
 
-  // -------- Dialog: edit keys/payment ----------
-  $("btnEditClose").onclick = () => $("dlgEdit").close();
-  $("btnDatesClose").onclick = () => $("dlgDates").close();
-  $("btnCancelClose").onclick = () => $("dlgCancel").close();
+        const keyset = getField(f, "Jeu de clés");
+        const paid = getField(f, "Payé ?") || "";
 
-  function openEdit(item){
-    current = item;
-    const f = item.fields || {};
-    $("editTitle").textContent = `${f.Appartement || ""} — ${fmtName(f) || ""} — ${fmtDates(f)}`;
+        const givenAt = getField(f, "Date de remise");
+        const returnAt = getField(f, "Date de récupération");
 
-    $("fKeyset").value = f["Jeu de clés"] || "";
-    $("fPaid").value = f["Payé ?"] || "";
-    $("fGivenAt").value = (f["Date de remise"] || "").slice(0,10);
-    $("fReturnAt").value = (f["Date de récupération"] || "").slice(0,10);
-    $("editMsg").textContent = "";
+        const div = document.createElement("div");
+        div.className = "item";
+        div.innerHTML = `
+          <div class="name">${abonne}${ext ? ` — ${ext}` : ""}</div>
+          <div class="sub">${apt || ""} • ${fmt(start)} → ${fmt(end)}</div>
 
-    // Dates dialog prefill
-    $("dStart").value = (f["Date de début"] || "").slice(0,10);
-    $("dEnd").value = (f["Date de fin"] || "").slice(0,10);
-    $("datesMsg").textContent = "";
-    $("datesConflicts").innerHTML = "";
-    $("btnForceDates").style.display = "none";
+          <div class="grid">
+            <div>
+              <label>Jeu de clés</label>
+              <select data-k="Jeu de clés">
+                <option value="">—</option>
+                <option>Serre-Chevalier N°1</option>
+                <option>Serre-Chevalier N°2</option>
+                <option>Serre-Chevalier N°3</option>
+                <option>Cavalaire N°1</option>
+                <option>Cavalaire N°2</option>
+                <option>Cavalaire N°3</option>
+              </select>
+            </div>
 
-    $("dlgEdit").showModal();
-  }
+            <div>
+              <label>Payé ?</label>
+              <select data-k="Payé ?">
+                <option value="">—</option>
+                <option>Sumup</option>
+                <option>Chèque</option>
+                <option>Non</option>
+              </select>
+            </div>
+          </div>
 
-  $("btnSaveKeys").onclick = async () => {
-    if (!current) return;
-    $("editMsg").textContent = "Enregistrement…";
-    try {
-      await apiPost("/admin/update-keys", {
-        id: current.id,
-        "Jeu de clés": $("fKeyset").value || "",
-        "Payé ?": $("fPaid").value || "",
-        "Date de remise": $("fGivenAt").value || "",
-        "Date de récupération": $("fReturnAt").value || ""
-      });
-      $("editMsg").textContent = "OK ✅";
-      await refresh();
-    } catch (e) {
-      $("editMsg").textContent = "Erreur : " + (e.message || e);
-    }
-  };
+          <div class="row" style="margin-top:10px">
+            ${givenAt ? `<span class="pill">Remise : ${fmt(givenAt)}</span>` : `<span class="pill">Remise : —</span>`}
+            ${returnAt ? `<span class="pill">Récupération : ${fmt(returnAt)}</span>` : `<span class="pill">Récupération : —</span>`}
+          </div>
 
-  $("btnOpenDates").onclick = () => openDates();
-  function openDates(){
-    if (!current) return;
-    $("dlgDates").showModal();
-  }
+          <div class="actions">
+            <button class="primary" data-act="save">Enregistrer</button>
+            <button class="good" data-act="givenNow">Clés remises maintenant</button>
+            <button class="bad" data-act="returnedNow">Clés récupérées maintenant</button>
+          </div>
+        `;
 
-  // -------- Dialog: dates ----------
-  $("btnCheck").onclick = async () => {
-    if (!current) return;
-    $("datesMsg").textContent = "Vérification…";
-    $("datesConflicts").innerHTML = "";
-    $("btnForceDates").style.display = "none";
+        // set current values
+        const selKey = div.querySelector('select[data-k="Jeu de clés"]');
+        const selPaid = div.querySelector('select[data-k="Payé ?"]');
+        selKey.value = keyset || "";
+        selPaid.value = paid || "";
 
-    try {
-      const data = await apiPost("/admin/check-dates", {
-        id: current.id,
-        start: $("dStart").value,
-        end: $("dEnd").value
-      });
+        div.querySelector('[data-act="save"]').onclick = async () => {
+          await updateKeys(it.id, {
+            "Jeu de clés": selKey.value || "",
+            "Payé ?": selPaid.value || "",
+          });
+        };
 
-      const blockers = data.blockers || [];
-      const pending = data.pending || [];
+        div.querySelector('[data-act="givenNow"]').onclick = async () => {
+          await updateKeys(it.id, {
+            "Date de remise": todayISO(),
+            "Clés remise par": [adminId],     // ✅ auto (Option A)
+          });
+        };
 
-      if (!blockers.length && !pending.length) {
-        $("datesMsg").textContent = "Aucun conflit ✅";
-        return;
+        div.querySelector('[data-act="returnedNow"]').onclick = async () => {
+          await updateKeys(it.id, {
+            "Date de récupération": todayISO(),
+            "Clés récupérées par": [adminId], // ✅ auto (Option A)
+          });
+        };
+
+        listEl.appendChild(div);
       }
-
-      let html = "";
-      if (blockers.length) {
-        $("datesMsg").textContent = "Conflit(s) avec réservation VALIDÉE :";
-        html += `<div class="card"><div class="muted">Bloquants</div></div>`;
-        html += blockers.map(x => conflictCard(x)).join("");
-      } else {
-        $("datesMsg").textContent = "Conflit(s) détecté(s) (en attente) :";
-      }
-
-      if (pending.length) {
-        html += `<div class="card"><div class="muted">En attente</div></div>`;
-        html += pending.map(x => conflictCard(x)).join("");
-      }
-
-      $("datesConflicts").innerHTML = html;
-      if (blockers.length) $("btnForceDates").style.display = "";
-    } catch (e) {
-      $("datesMsg").textContent = "Erreur : " + (e.message || e);
     }
-  };
 
-  function conflictCard(x){
-    const f = x.fields || {};
-    return `
-      <div class="card">
-        <div class="row">
-          <div class="title">${esc(fmtName(f) || "(sans nom)")}</div>
-          <div class="spacer"></div>
-          <span class="pill">${esc(f["Statut de la demande"] || "")}</span>
-        </div>
-        <div class="muted">${esc(f.Appartement || "")} • ${esc(fmtDates(f))} • Prix: ${esc(f["Prix total"] ?? "")}</div>
-      </div>
-    `;
-  }
-
-  $("btnSaveDates").onclick = async () => saveDates(false);
-  $("btnForceDates").onclick = async () => saveDates(true);
-
-  async function saveDates(force){
-    if (!current) return;
-    $("datesMsg").textContent = "Enregistrement…";
-    try {
-      const data = await apiPost("/admin/update-dates", {
-        id: current.id,
-        start: $("dStart").value,
-        end: $("dEnd").value,
-        force
-      });
-
-      if (data.blocked) {
-        $("datesMsg").textContent = "Bloqué : conflit avec une VALIDÉE. Tu peux utiliser 'Enregistrer quand même'.";
-        $("btnForceDates").style.display = "";
-        return;
+    async function updateKeys(id, patch){
+      errEl.textContent = "";
+      try{
+        const r = await AdminAuth.authedFetch(`${API}/admin/update-keys`, {
+          method:"POST",
+          headers:{ "Content-Type":"application/json" },
+          body: JSON.stringify({ id, ...patch })
+        });
+        const data = await r.json();
+        if(!r.ok || !data.ok) throw new Error(data.message || "Erreur mise à jour");
+        await load();
+      }catch(e){
+        errEl.textContent = "Erreur : " + (e.message || e);
       }
-
-      $("datesMsg").textContent = "OK ✅ (prix recalculé automatiquement)";
-      $("dlgDates").close();
-      $("dlgEdit").close();
-      await refresh();
-    } catch (e) {
-      $("datesMsg").textContent = "Erreur : " + (e.message || e);
     }
-  }
 
-  // -------- Dialog: cancel ----------
-  $("btnOpenCancel").onclick = () => openCancel();
-  async function openCancel(){
-    if (!current) return;
-    $("cancelMsg").textContent = "";
-    $("cFees").value = "50%";
-    $("cancelHint").style.display = "none";
-
-    try {
-      const data = await apiGet(`/admin/conflicts?id=${encodeURIComponent(current.id)}`);
-      const less21 = !!data.cancelHintLessThan21;
-      $("cancelHint").style.display = "";
-      if (less21) {
-        $("cancelHint").textContent = "Annulation à moins de 21 jours : frais suggérés 50% (modifiable).";
-        $("cFees").value = "50%";
-      } else {
-        $("cancelHint").textContent = "Annulation à plus de 21 jours : frais suggérés 0 (modifiable).";
-        $("cFees").value = "0";
-      }
-    } catch {}
-    $("dlgCancel").showModal();
-  }
-
-  $("btnDoCancel").onclick = async () => {
-    if (!current) return;
-    if (!confirm("Confirmer l'annulation ? (Elle disparaîtra du calendrier si celui-ci filtre 'Validée')")) return;
-    $("cancelMsg").textContent = "Annulation…";
-    try {
-      await apiPost("/admin/cancel", { id: current.id, fees: $("cFees").value.trim() });
-      $("cancelMsg").textContent = "OK ✅";
-      $("dlgCancel").close();
-      $("dlgEdit").close();
-      await refresh();
-    } catch (e) {
-      $("cancelMsg").textContent = "Erreur : " + (e.message || e);
-    }
-  };
-
-  refresh();
-</script>
+    refreshBtn.addEventListener("click", load);
+    load();
+  </script>
 </body>
 </html>
