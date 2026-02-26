@@ -1,0 +1,222 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Administration - Gestion des clés</title>
+  <style>
+    body{font-family:system-ui,Segoe UI,Roboto,Arial;margin:0;background:#f6f7fb}
+    header{display:flex;gap:10px;align-items:center;justify-content:space-between;padding:14px 16px;background:#fff;border-bottom:1px solid #eceef5}
+    header .left{display:flex;gap:10px;align-items:center}
+    header a{color:#111;text-decoration:none;font-weight:600}
+    .wrap{max-width:1100px;margin:18px auto;padding:0 12px}
+    .card{background:#fff;border:1px solid #eceef5;border-radius:12px;padding:14px;margin:12px 0;box-shadow:0 4px 18px rgba(0,0,0,.05)}
+    .row{display:grid;grid-template-columns: 1.2fr 170px 170px 190px 140px 140px;gap:10px;align-items:end}
+    label{display:block;font-size:12px;color:#555;margin-bottom:5px}
+    input,select{width:100%;padding:9px 10px;border:1px solid #d8dbe5;border-radius:10px;font-size:14px;background:#fff}
+    .meta{font-size:13px;color:#333}
+    .actions{display:flex;gap:10px;margin-top:12px}
+    button{padding:9px 12px;border-radius:10px;border:1px solid #d8dbe5;background:#fff;cursor:pointer;font-weight:600}
+    button.primary{background:#111;color:#fff;border-color:#111}
+    .topline{display:flex;gap:10px;align-items:center;justify-content:space-between;margin:8px 0 12px}
+    .small{font-size:13px;color:#555}
+    .warn{margin-top:10px;padding:10px;border-radius:10px;background:#fff8e6;border:1px solid #ffe1a3;color:#7a5200;font-size:13px}
+    .err{margin-top:10px;padding:10px;border-radius:10px;background:#fff3f3;border:1px solid #ffd2d2;color:#8a0000;font-size:13px}
+  </style>
+</head>
+<body>
+<header>
+  <div class="left">
+    <a href="reservations.html">Réservations</a>
+    <a href="cles.html">Gestion des clés</a>
+  </div>
+  <div class="small" id="who"></div>
+</header>
+
+<div class="wrap">
+  <div class="topline">
+    <div>
+      <div style="font-weight:700">Gestion des clés</div>
+      <div class="small">Validées (en cours/à venir) + clés non rendues</div>
+    </div>
+    <button id="reload">Rafraîchir</button>
+  </div>
+
+  <div id="list"></div>
+</div>
+
+<script>
+const WORKER_BASE_URL = "REPLACE_ME_WORKER_URL";
+const token = localStorage.getItem("coge_admin_token");
+const adminName = localStorage.getItem("coge_admin_name") || "";
+document.getElementById("who").textContent = adminName ? `Connecté : ${adminName}` : "";
+if (!token) window.location.href = "login.html";
+
+function esc(s){return String(s??"").replace(/[&<>"']/g,m=>({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[m]));}
+function field(fields, name){ return fields?.[name]; }
+
+async function api(path, opts={}){
+  const r = await fetch(`${WORKER_BASE_URL}${path}`, {
+    ...opts,
+    headers: {
+      ...(opts.headers||{}),
+      "authorization": `Bearer ${token}`,
+      "content-type": "application/json"
+    }
+  });
+  const j = await r.json();
+  if (!j.ok) throw new Error(j.error || "Erreur API");
+  return j;
+}
+
+let unavailableNames = [];
+let unavailableDetails = [];
+
+function renderKeyOptions(currentValue){
+  // options are hard-coded from your Airtable singleSelect choices (from your JSON)
+  const all = [
+    "Cavalaire N°1","Cavalaire N°2","Cavalaire N°3",
+    "Serre-Chevalier N°1","Serre-Chevalier N°2","Serre-Chevalier N°3"
+  ];
+  return all.map(name=>{
+    const isUnavailable = unavailableNames.includes(name);
+    const isCurrent = currentValue === name;
+    const disabled = (isUnavailable && !isCurrent) ? "disabled" : "";
+    const suffix = (isUnavailable && !isCurrent) ? " (non rendu)" : "";
+    return `<option value="${esc(name)}" ${name===currentValue?"selected":""} ${disabled}>${esc(name + suffix)}</option>`;
+  }).join("");
+}
+
+function renderCard(rec){
+  const f = rec.fields || {};
+  const recordId = rec.id;
+
+  const nomA = field(f,"Nom de l'abonné") || "";
+  const nomE = field(f,"Nom de l’Extérieur") || "";
+  const apt = Array.isArray(field(f,"Appartement")) ? field(f,"Appartement")[0] : (field(f,"Appartement")||"");
+  const dd = (field(f,"Date de début")||"").slice(0,10);
+  const df = (field(f,"Date de fin")||"").slice(0,10);
+  const prix = field(f,"Prix total");
+
+  const jeu = field(f,"Jeu de clés") || "";
+  const paye = field(f,"Payé ?") || "";
+  const montant = (field(f,"Montant payé") ?? "");
+  const dateRemise = (field(f,"Date de remise")||"").slice(0,10);
+  const dateRecup = (field(f,"Date de récupération")||"").slice(0,10);
+
+  // advisory if key is unavailable (should be current reservation)
+  const warn = (jeu && unavailableNames.includes(jeu))
+    ? `<div class="warn">🔒 Jeu de clés "${esc(jeu)}" actuellement sorti (normal si c’est ce séjour). Il restera indisponible tant que "Date de récupération" n’est pas remplie.</div>`
+    : "";
+
+  return `
+  <div class="card" data-id="${esc(recordId)}">
+    <div class="meta" style="margin-bottom:10px">
+      <b>${esc(nomA)}</b>${nomE?` — Extérieur : <b>${esc(nomE)}</b>`:""} • <b>${esc(apt)}</b>
+      <div class="small">${esc(dd)} → ${esc(df)} • Prix total : <b>${(prix!==undefined && prix!==null)?esc(prix)+" €":"-"}</b></div>
+    </div>
+
+    <div class="row">
+      <div>
+        <label>Jeu de clés</label>
+        <select class="jeu">
+          <option value="">—</option>
+          ${renderKeyOptions(jeu)}
+        </select>
+      </div>
+
+      <div>
+        <label>Payé ?</label>
+        <select class="paye">
+          <option value="">—</option>
+          <option value="Sumup" ${paye==="Sumup"?"selected":""}>Sumup</option>
+          <option value="Chèque" ${paye==="Chèque"?"selected":""}>Chèque</option>
+          <option value="Non" ${paye==="Non"?"selected":""}>Non</option>
+        </select>
+      </div>
+
+      <div>
+        <label>Montant payé (€)</label>
+        <input class="montant" type="number" step="0.01" value="${esc(montant)}" placeholder="${(prix!==undefined && prix!==null)?esc(prix):""}" />
+      </div>
+
+      <div>
+        <label>Date de remise</label>
+        <input class="dateRemise" type="date" value="${esc(dateRemise)}" />
+      </div>
+
+      <div>
+        <label>Date de récupération</label>
+        <input class="dateRecup" type="date" value="${esc(dateRecup)}" />
+      </div>
+
+      <div>
+        <label>&nbsp;</label>
+        <button class="primary save">Enregistrer</button>
+      </div>
+    </div>
+
+    ${warn}
+    <div class="err" style="display:none"></div>
+  </div>`;
+}
+
+async function load(){
+  const list = document.getElementById("list");
+  list.innerHTML = "Chargement…";
+  try{
+    const j = await api("/api/cles/list", { method:"GET" });
+    const recs = j.records || [];
+    unavailableNames = (j.unavailableKeySets?.names) || [];
+    unavailableDetails = (j.unavailableKeySets?.details) || [];
+    if (!recs.length) { list.innerHTML = "<div class='small'>Aucune réservation à gérer.</div>"; return; }
+    list.innerHTML = recs.map(renderCard).join("");
+    bind();
+  }catch(e){
+    list.innerHTML = `<div class="err">Erreur : ${esc(e.message)}</div>`;
+  }
+}
+
+function bind(){
+  document.querySelectorAll(".card").forEach(card=>{
+    const id = card.getAttribute("data-id");
+    const errBox = card.querySelector(".err");
+
+    card.querySelector(".save").addEventListener("click", async ()=>{
+      errBox.style.display = "none";
+      errBox.textContent = "";
+
+      const jeu = card.querySelector(".jeu").value;
+      const paye = card.querySelector(".paye").value;
+      const montant = card.querySelector(".montant").value;
+      const dateRemise = card.querySelector(".dateRemise").value;
+      const dateRecup = card.querySelector(".dateRecup").value;
+
+      try{
+        const j = await api("/api/cles/update", {
+          method:"POST",
+          body: JSON.stringify({
+            recordId: id,
+            jeuDeCles: jeu,
+            paye,
+            montantPaye: montant,
+            dateRemise,
+            dateRecup
+          })
+        });
+        // refresh availability + list
+        unavailableNames = (j.unavailableKeySets?.names) || unavailableNames;
+        await load();
+      }catch(e){
+        errBox.style.display = "block";
+        errBox.textContent = e.message;
+      }
+    });
+  });
+}
+
+document.getElementById("reload").addEventListener("click", load);
+load();
+</script>
+</body>
+</html>
