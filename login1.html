@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Administration - Connexion</title>
+  <style>
+    body{font-family:system-ui,Segoe UI,Roboto,Arial;margin:0;background:#f6f7fb}
+    .wrap{max-width:420px;margin:60px auto;background:#fff;padding:22px;border-radius:12px;box-shadow:0 6px 24px rgba(0,0,0,.08)}
+    h1{font-size:18px;margin:0 0 14px}
+    label{display:block;font-size:13px;margin:12px 0 6px}
+    input{width:100%;padding:10px 12px;border:1px solid #d8dbe5;border-radius:10px;font-size:14px}
+    button{width:100%;margin-top:14px;padding:10px 12px;border:0;border-radius:10px;background:#111;color:#fff;font-weight:600;cursor:pointer}
+    .err{margin-top:12px;color:#b00020;font-size:13px}
+    .links{margin-top:14px;font-size:13px;color:#444}
+    .links a{color:#111}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>Connexion administrateur</h1>
+
+    <label>Login</label>
+    <input id="login" autocomplete="username" />
+
+    <label>Password</label>
+    <input id="password" type="password" autocomplete="current-password" />
+
+    <button id="btn">Se connecter</button>
+    <div id="err" class="err"></div>
+
+    <div class="links">
+      Après connexion : <a href="reservations.html">Réservations</a> • <a href="cles.html">Gestion des clés</a>
+    </div>
+  </div>
+
+<script>
+const WORKER_BASE_URL = https://pageadministration.cogechirolles.workers.dev/;
+const $ = (id)=>document.getElementById(id);
+
+$("btn").addEventListener("click", async () => {
+  $("err").textContent = "";
+  const login = $("login").value.trim();
+  const password = $("password").value;
+
+  try {
+    const r = await fetch(`${WORKER_BASE_URL}/api/login`, {
+      method: "POST",
+      headers: {"content-type":"application/json"},
+      body: JSON.stringify({login, password})
+    });
+    const j = await r.json();
+    if (!j.ok) throw new Error(j.error || "Erreur de connexion");
+    localStorage.setItem("coge_admin_token", j.token);
+    localStorage.setItem("coge_admin_name", j.adminName || "");
+    window.location.href = "reservations.html";
+  } catch(e) {
+    $("err").textContent = e.message;
+  }
+});
+</script>
+</body>
+</html>
