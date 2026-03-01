@@ -1,269 +1,281 @@
 <!doctype html>
 <html lang="fr">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Administration - Réservations</title>
-  <style>
-    body{font-family:system-ui,Segoe UI,Roboto,Arial;margin:0;background:#f6f7fb}
-    header{display:flex;gap:10px;align-items:center;justify-content:space-between;padding:14px 16px;background:#fff;border-bottom:1px solid #eceef5}
-    header .left{display:flex;gap:10px;align-items:center}
-    header a{color:#111;text-decoration:none;font-weight:700}
-    .right{display:flex;gap:10px;align-items:center}
-    .btn{padding:8px 10px;border-radius:10px;border:1px solid #d8dbe5;background:#fff;cursor:pointer;font-weight:800}
-    .wrap{max-width:1100px;margin:18px auto;padding:0 12px}
-    .topline{display:flex;gap:10px;align-items:flex-end;justify-content:space-between;margin:8px 0 12px}
-    .small{font-size:13px;color:#555}
-    .kpi{display:flex;gap:10px;align-items:center}
-    .pill{display:inline-flex;align-items:center;gap:8px;padding:6px 10px;border-radius:999px;border:1px solid #eceef5;background:#fff;font-size:13px;font-weight:800}
-    .pill.red{border-color:#ffd2d2;background:#fff3f3;color:#8a0000}
-    .pill.green{border-color:#cfe9d6;background:#f1fbf4;color:#0d5a24}
-    .card{background:#fff;border:1px solid #eceef5;border-radius:12px;padding:18px;margin:18px 0;box-shadow:0 4px 18px rgba(0,0,0,.05)}
-    .card.conf{border-color:#ffd2d2}
-    .headrow{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px}
-    .title{font-weight:900}
-    .badge{display:inline-flex;align-items:center;padding:6px 10px;border-radius:999px;font-size:12px;font-weight:900;border:1px solid #eceef5;background:#fff}
-    .badge.red{border-color:#ffd2d2;background:#fff3f3;color:#8a0000}
-    .badge.gray{border-color:#e6e6e6;background:#fafafa;color:#444}
-   .row {display:grid;grid-template-columns: 1.2fr 170px 170px 170px; gap: 14px;margin-top: 12px;}
-    label{display:block;font-size:12px;color:#555;margin-bottom:5px}
-    input{width:100%;padding:9px 10px;border:1px solid #d8dbe5;border-radius:10px;font-size:14px}
-    .meta{font-size:13px;color:#333}
-    .conflict{margin-top:10px;padding:10px;border-radius:10px;background:#fff3f3;border:1px solid #ffd2d2;color:#8a0000;font-size:13px}
-    .actions{display:flex;gap:10px;margin-top:12px;flex-wrap:wrap}
-    button{padding:9px 12px;border-radius:10px;border:1px solid #d8dbe5;background:#fff;cursor:pointer;font-weight:800}
-    button.primary{background:#111;color:#fff;border-color:#111}
-    button.danger{background:#fff3f3;border-color:#ffd2d2;color:#8a0000}
-    button.disabled{opacity:.5;cursor:not-allowed}
-    .hint{font-size:12px;color:#666;margin-top:6px}
-    .sep{height:1px;background:#eceef5;margin:10px 0}
-  </style>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Administration - Réservations en attente</title>
+
+<style>
+body{
+  font-family:system-ui,Segoe UI,Roboto,Arial;
+  margin:0;
+  background:#f6f7fb;
+}
+
+header{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  padding:14px 18px;
+  background:#fff;
+  border-bottom:1px solid #eceef5;
+}
+
+header a{
+  font-weight:800;
+  text-decoration:none;
+  color:#111;
+  margin-right:15px;
+}
+
+.btn{
+  padding:8px 12px;
+  border-radius:10px;
+  border:1px solid #d8dbe5;
+  background:#fff;
+  font-weight:800;
+  cursor:pointer;
+}
+
+.btn.primary{
+  background:#1e88e5;
+  color:#fff;
+  border:none;
+}
+
+.btn.danger{
+  background:#c62828;
+  color:#fff;
+  border:none;
+}
+
+.wrap{
+  max-width:1100px;
+  margin:24px auto;
+  padding:0 16px;
+}
+
+.card{
+  background:#fff;
+  border:1px solid #eceef5;
+  border-radius:14px;
+  padding:20px;
+  margin-bottom:22px;
+}
+
+.meta{
+  font-size:14px;
+  margin-bottom:14px;
+  font-weight:600;
+}
+
+.row{
+  display:grid;
+  grid-template-columns: 1.4fr repeat(2, minmax(160px, 1fr)) 220px;
+  gap:16px;
+  align-items:end;
+  margin-top:12px;
+}
+
+label{
+  font-size:12px;
+  color:#555;
+  margin-bottom:6px;
+  display:block;
+}
+
+input{
+  width:100%;
+  padding:10px;
+  border-radius:10px;
+  border:1px solid #d8dbe5;
+  min-height:42px;
+}
+
+.actions{
+  display:flex;
+  gap:10px;
+}
+
+.conflict{
+  margin-top:12px;
+  padding:10px;
+  border-radius:10px;
+  background:#fff3f3;
+  border:1px solid #ffd2d2;
+  color:#8a0000;
+  font-size:13px;
+}
+
+.err{
+  margin-top:10px;
+  color:#b00020;
+  font-size:13px;
+}
+
+/* Responsive tablette */
+@media (max-width:1000px){
+  .row{
+    grid-template-columns:1fr 1fr;
+  }
+}
+
+/* Responsive mobile */
+@media (max-width:640px){
+  .row{
+    grid-template-columns:1fr;
+  }
+}
+</style>
 </head>
+
 <body>
+
 <header>
-  <div class="left">
+  <div>
     <a href="reservations.html">Réservations</a>
     <a href="cles.html">Gestion des clés</a>
   </div>
-  <div class="right">
-    <div class="small" id="who"></div>
+  <div>
+    <span id="who" style="font-weight:700;color:#444;margin-right:10px"></span>
     <button class="btn" id="logout">Déconnexion</button>
   </div>
 </header>
 
 <div class="wrap">
-  <div class="topline">
-    <div>
-      <div style="font-weight:900;font-size:18px">Demandes en attente</div>
-      <div class="small">Table : <b>Réservations</b> • Statut : <b>En attente</b></div>
-    </div>
-    <div class="kpi">
-      <div class="pill" id="countPill">…</div>
-      <button class="btn" id="reload">Rafraîchir</button>
-    </div>
-  </div>
-
+  <h2>Demandes en attente</h2>
   <div id="list"></div>
 </div>
 
 <script>
 const WORKER_BASE_URL = "https://pageadministration.cogechirolles.workers.dev";
 
-function logout(){
+const token = localStorage.getItem("coge_admin_token");
+const adminName = localStorage.getItem("coge_admin_name")||"";
+
+if(!token) window.location.href="login.html";
+document.getElementById("who").textContent = adminName ? `Connecté : ${adminName}` : "";
+
+document.getElementById("logout").onclick=()=>{
   localStorage.removeItem("coge_admin_token");
   localStorage.removeItem("coge_admin_name");
-  window.location.href = "login.html";
+  window.location.href="login.html";
+};
+
+function esc(s){
+  return String(s??"").replace(/[&<>"']/g,m=>({
+    "&":"&amp;","<":"&lt;",">":"&gt;",
+    '"':"&quot;","'":"&#39;"
+  }[m]));
 }
 
-const token = localStorage.getItem("coge_admin_token");
-const adminName = localStorage.getItem("coge_admin_name") || "";
-document.getElementById("who").textContent = adminName ? `Connecté : ${adminName}` : "";
-document.getElementById("logout").addEventListener("click", logout);
-if (!token) window.location.href = "login.html";
-
-function esc(s){return String(s??"").replace(/[&<>"']/g,m=>({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[m]));}
-
-async function api(path, opts={}){
-  const r = await fetch(`${WORKER_BASE_URL}${path}`, {
+async function api(path,opts={}){
+  const r = await fetch(WORKER_BASE_URL+path,{
     ...opts,
-    headers: {
+    headers:{
       ...(opts.headers||{}),
-      "authorization": `Bearer ${token}`,
-      "content-type": "application/json"
+      "authorization":"Bearer "+token,
+      "content-type":"application/json"
     }
   });
-  const j = await r.json().catch(()=>({ok:false,error:"Réponse API invalide"}));
-  if (!j.ok) {
-    if (r.status === 401) logout();
-    throw new Error(j.error || "Erreur API");
+  const j = await r.json();
+  if(!j.ok){
+    if(r.status===401) window.location.href="login.html";
+    throw new Error(j.error||"Erreur API");
   }
   return j;
 }
 
-function field(fields, name){ return fields?.[name]; }
+function render(records){
+  const container=document.getElementById("list");
+  if(!records.length){
+    container.innerHTML="<p>Aucune demande en attente.</p>";
+    return;
+  }
 
-function fmtRange(d1, d2){
-  if (!d1 || !d2) return "";
-  return `${d1} → ${d2}`;
-}
+  container.innerHTML=records.map(rec=>{
+    const f=rec.fields||{};
+    const conflicts=rec.conflicts||[];
 
-function renderCard(item){
-  const f = item.fields || {};
-  const recordId = item.recordId;
-  const dateDebut = (field(f,"Date de début")||"").slice(0,10);
-  const dateFin = (field(f,"Date de fin")||"").slice(0,10);
-
-  const nomA = field(f,"Nom de l'abonné") || "";
-  const nomE = field(f,"Nom de l’Extérieur") || "";
-  const apt = Array.isArray(field(f,"Appartement")) ? field(f,"Appartement")[0] : (field(f,"Appartement")||"");
-  const prix = field(f,"Prix total");
-
-  const conflicts = item.conflicts || [];
-  const hasConflict = conflicts.length > 0;
-
-  const conflictHtml = hasConflict ? `
-    <div class="conflict">
-      ⚠️ <b>Conflit détecté</b> sur <b>${esc(apt)}</b> :
-      <ul style="margin:8px 0 0 18px">
-        ${conflicts.map(c=>`<li>${esc(c.start)} → ${esc(c.end)}</li>`).join("")}
-      </ul>
-      <div class="hint">Tu peux refuser, ou valider quand même si tu sais ce que tu fais.</div>
-    </div>` : "";
-
-  return `
-  <div class="card ${hasConflict ? "conf" : ""}" data-id="${esc(recordId)}" data-conf="${hasConflict ? "1":"0"}">
-    <div class="headrow">
-      <div class="title">${esc(apt)} • ${esc(fmtRange(dateDebut, dateFin))}</div>
-      <div style="display:flex;gap:8px;align-items:center">
-        ${hasConflict ? `<span class="badge red">CONFLIT</span>` : `<span class="badge gray">OK</span>`}
-        <span class="badge gray">#${esc(recordId.slice(-6))}</span>
-      </div>
-    </div>
-
-    <div class="row">
-      <div>
-        <label>Date de début</label>
-        <input type="date" class="dateDebut" value="${esc(dateDebut)}" />
-      </div>
-      <div>
-        <label>Date de fin</label>
-        <input type="date" class="dateFin" value="${esc(dateFin)}" />
-      </div>
-
+    return `
+    <div class="card" data-id="${rec.recordId}">
       <div class="meta">
-        <label>Abonné</label>
-        <div><b>${esc(nomA)}</b>${nomE?` — Extérieur : <b>${esc(nomE)}</b>`:""}</div>
+        ${esc(f["Nom de l'abonné"]||"")}
+        ${f["Nom de l’Extérieur"]?` — ${esc(f["Nom de l’Extérieur"])}`:""}
+        • ${esc(Array.isArray(f["Appartement"])?f["Appartement"][0]:f["Appartement"]||"")}
       </div>
 
-      <div class="meta">
-        <label>Appartement</label>
-        <div><b>${esc(apt)}</b></div>
-      </div>
+      <div class="row">
+        <div>
+          <label>Date de début</label>
+          <input type="date" class="dateDebut" value="${esc((f["Date de début"]||"").slice(0,10))}">
+        </div>
 
-      <div class="meta">
-        <label>Prix total</label>
-        <div><b>${(prix!==undefined && prix!==null)?esc(prix)+" €":"-"}</b></div>
-      </div>
+        <div>
+          <label>Date de fin</label>
+          <input type="date" class="dateFin" value="${esc((f["Date de fin"]||"").slice(0,10))}">
+        </div>
 
-      <div class="meta">
-        <label>Actions</label>
-        <div class="actions" style="margin:0">
-          <button class="save">Enregistrer dates</button>
+        <div class="actions">
+          <button class="btn primary validate">Valider</button>
+          <button class="btn danger refuse">Refuser</button>
         </div>
       </div>
-    </div>
 
-    ${conflictHtml}
+      ${conflicts.length ? `
+        <div class="conflict">
+          ⚠ Conflit avec un séjour validé :
+          ${conflicts.map(c=>`${c.start} → ${c.end}`).join(", ")}
+        </div>` : ""}
 
-    <div class="sep"></div>
+      <div class="err"></div>
+    </div>`;
+  }).join("");
 
-    <div class="actions">
-      <button class="primary validate ${hasConflict ? "disabled" : ""}" ${hasConflict ? "disabled":""}>✅ Valider</button>
-      ${hasConflict ? `<button class="primary force">✅ Valider quand même</button>` : ""}
-      <button class="danger refuse">❌ Refuser</button>
-    </div>
-  </div>`;
-}
-
-async function load(){
-  const list = document.getElementById("list");
-  list.innerHTML = "Chargement…";
-
-  try{
-    const j = await api("/api/reservations/pending", { method:"GET" });
-    const items = j.records || [];
-
-    const conflictCount = items.filter(x => (x.conflicts||[]).length > 0).length;
-
-    const pill = document.getElementById("countPill");
-    pill.className = "pill" + (conflictCount ? " red" : " green");
-    pill.textContent = `${items.length} en attente • ${conflictCount} conflit(s)`;
-
-    if (!items.length) {
-      list.innerHTML = "<div class='small'>Aucune demande en attente.</div>";
-      return;
-    }
-
-    list.innerHTML = items.map(renderCard).join("");
-    bind();
-  }catch(e){
-    document.getElementById("countPill").className = "pill";
-    document.getElementById("countPill").textContent = "Erreur";
-    list.innerHTML = `<div class="conflict">Erreur : ${esc(e.message)}</div>`;
-  }
+  bind();
 }
 
 function bind(){
   document.querySelectorAll(".card").forEach(card=>{
-    const id = card.getAttribute("data-id");
-    const getDates = ()=>({
-      dateDebut: card.querySelector(".dateDebut").value,
-      dateFin: card.querySelector(".dateFin").value,
-    });
+    const id=card.dataset.id;
 
-    card.querySelector(".save").addEventListener("click", async ()=>{
-      const {dateDebut, dateFin} = getDates();
-      await api("/api/reservations/update", {
-        method:"POST",
-        body: JSON.stringify({ recordId:id, action:"saveDates", dateDebut, dateFin })
-      });
-      await load();
-    });
+    card.querySelector(".validate").onclick=async()=>{
+      await save(card,id,"validate");
+    };
 
-    const validateBtn = card.querySelector(".validate");
-    if (validateBtn) validateBtn.addEventListener("click", async ()=>{
-      if (validateBtn.hasAttribute("disabled")) return;
-      const {dateDebut, dateFin} = getDates();
-      await api("/api/reservations/update", {
-        method:"POST",
-        body: JSON.stringify({ recordId:id, action:"validate", dateDebut, dateFin })
-      });
-      await load();
-    });
-
-    const forceBtn = card.querySelector(".force");
-    if (forceBtn) forceBtn.addEventListener("click", async ()=>{
-      const {dateDebut, dateFin} = getDates();
-      await api("/api/reservations/update", {
-        method:"POST",
-        body: JSON.stringify({ recordId:id, action:"validate", dateDebut, dateFin })
-      });
-      await load();
-    });
-
-    card.querySelector(".refuse").addEventListener("click", async ()=>{
-      const {dateDebut, dateFin} = getDates();
-      await api("/api/reservations/update", {
-        method:"POST",
-        body: JSON.stringify({ recordId:id, action:"refuse", dateDebut, dateFin })
-      });
-      await load();
-    });
+    card.querySelector(".refuse").onclick=async()=>{
+      await save(card,id,"refuse");
+    };
   });
 }
 
-document.getElementById("reload").addEventListener("click", load);
+async function save(card,id,action){
+  const dateDebut=card.querySelector(".dateDebut").value;
+  const dateFin=card.querySelector(".dateFin").value;
+
+  try{
+    await api("/api/reservations/update",{
+      method:"POST",
+      body:JSON.stringify({
+        recordId:id,
+        action,
+        dateDebut,
+        dateFin
+      })
+    });
+    load();
+  }catch(e){
+    card.querySelector(".err").textContent=e.message;
+  }
+}
+
+async function load(){
+  const j=await api("/api/reservations/pending",{method:"GET"});
+  render(j.records||[]);
+}
+
 load();
 </script>
+
 </body>
 </html>
