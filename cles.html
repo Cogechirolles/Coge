@@ -121,17 +121,40 @@ async function api(path, opts={}){
 let unavailableNames = [];
 let allRecords = [];
 
-function renderKeyOptions(currentValue){
-  const all = [
-    "Cavalaire N°1","Cavalaire N°2","Cavalaire N°3",
-    "Serre-Chevalier N°1","Serre-Chevalier N°2","Serre-Chevalier N°3"
-  ];
+// 🔹 Catalogues clés par appartement
+const KEYSETS = {
+  "Cavalaire": ["Cavalaire N°1","Cavalaire N°2","Cavalaire N°3"],
+  "Serre-Chevalier": ["Serre-Chevalier N°1","Serre-Chevalier N°2","Serre-Chevalier N°3"],
+};
+
+function getAptNameFromField(aptField){
+  // aptField peut être string ou tableau (selon Airtable)
+  const apt = Array.isArray(aptField) ? aptField[0] : aptField;
+  const s = String(apt || "");
+  if (s.includes("Cavalaire")) return "Cavalaire";
+  if (s.includes("Serre")) return "Serre-Chevalier";
+  return ""; // inconnu
+}
+
+function getAllowedKeysetsForApt(aptName){
+  return KEYSETS[aptName] || []; // si inconnu -> on affichera rien (sauf valeur actuelle)
+}
+
+function renderKeyOptions(currentValue, aptName){
+  const allowed = getAllowedKeysetsForApt(aptName);
+
+  // Important : si une valeur actuelle existe mais ne fait pas partie des allowed,
+  // on l’affiche quand même (pour ne pas “casser” une donnée existante), mais on la marque.
+  const all = [...allowed];
+  if (currentValue && !all.includes(currentValue)) all.unshift(currentValue);
+
   return all.map(name=>{
     const isUnavailable = unavailableNames.includes(name);
     const isCurrent = currentValue === name;
     const disabled = (isUnavailable && !isCurrent) ? "disabled" : "";
-    const suffix = (isUnavailable && !isCurrent) ? " (non rendu)" : "";
-    return `<option value="${esc(name)}" ${name===currentValue?"selected":""} ${disabled}>${esc(name + suffix)}</option>`;
+    const suffixUnavailable = (isUnavailable && !isCurrent) ? " (non rendu)" : "";
+    const suffixMismatch = (!allowed.includes(name) && name === currentValue) ? " (⚠️ ne correspond pas à l'appartement)" : "";
+    return `<option value="${esc(name)}" ${name===currentValue?"selected":""} ${disabled}>${esc(name + suffixUnavailable + suffixMismatch)}</option>`;
   }).join("");
 }
 
@@ -141,13 +164,38 @@ function matchAptFilter(apt){
   return String(apt||"").includes(v);
 }
 
+function splitRecords(records){
+  const out = [];     // clés sorties mais pas rendues
+  const toGive = [];  // clés pas encore remises
+
+  for (const rec of records) {
+    const f = rec.fields || {};
+    const dateRemise = (field(f,"Date de remise")||"").slice(0,10);
+    const dateRecup = (field(f,"Date de récupération")||"").slice(0,10);
+
+    const isOut = !!dateRemise && !dateRecup;
+    const isToGive = !dateRemise;
+
+    if (isOut) out.push(rec);
+    if (isToGive) toGive.push(rec);
+  }
+
+  const outIds = new Set(out.map(r => r.id));
+  const toGiveFiltered = toGive.filter(r => !outIds.has(r.id));
+
+  return { out, toGive: toGiveFiltered };
+}
+
 function renderCard(rec, isOut){
   const f = rec.fields || {};
   const recordId = rec.id;
 
   const nomA = field(f,"Nom de l'abonné") || "";
   const nomE = field(f,"Nom de l’Extérieur") || "";
-  const apt = Array.isArray(field(f,"Appartement")) ? field(f,"Appartement")[0] : (field(f,"Appartement")||"");
+  const aptField = field(f,"Appartement");
+  const apt = Array.isArray(aptField) ? aptField[0] : (aptField||"");
+  const aptName = getAptNameFromField(aptField);
+
   const dd = (field(f,"Date de début")||"").slice(0,10);
   const df = (field(f,"Date de fin")||"").slice(0,10);
 
@@ -161,8 +209,12 @@ function renderCard(rec, isOut){
   const montantValue = (montant === "" || montant === null || montant === undefined) ? "" : montant;
   const montantPlaceholder = (prixTotal!==undefined && prixTotal!==null) ? String(prixTotal) : "";
 
-  const warn = (jeu && unavailableNames.includes(jeu))
+  const warnUnavailable = (jeu && unavailableNames.includes(jeu))
     ? `<div class="warn">🔒 Jeu de clés "${esc(jeu)}" sorti : indisponible tant que "Date de récupération" n’est pas remplie.</div>`
+    : "";
+
+  const warnMismatch = (jeu && aptName && !getAllowedKeysetsForApt(aptName).includes(jeu))
+    ? `<div class="warn">⚠️ Le jeu sélectionné ne correspond pas à l’appartement (<b>${esc(aptName)}</b>). Corrige-le si besoin.</div>`
     : "";
 
   return `
@@ -184,7 +236,7 @@ function renderCard(rec, isOut){
         <label>Jeu de clés</label>
         <select class="jeu" style="width:100%;padding:9px 10px;border:1px solid #d8dbe5;border-radius:10px;background:#fff;font-weight:700">
           <option value="">—</option>
-          ${renderKeyOptions(jeu)}
+          ${renderKeyOptions(jeu, aptName)}
         </select>
       </div>
 
@@ -219,32 +271,10 @@ function renderCard(rec, isOut){
       </div>
     </div>
 
-    ${warn}
+    ${warnUnavailable}
+    ${warnMismatch}
     <div class="err" style="display:none"></div>
   </div>`;
-}
-
-function splitRecords(records){
-  const out = [];     // clés sorties mais pas rendues
-  const toGive = [];  // clés pas encore remises
-
-  for (const rec of records) {
-    const f = rec.fields || {};
-    const dateRemise = (field(f,"Date de remise")||"").slice(0,10);
-    const dateRecup = (field(f,"Date de récupération")||"").slice(0,10);
-
-    const isOut = !!dateRemise && !dateRecup; // ✅ sorti = remise faite
-    const isToGive = !dateRemise;             // ✅ à remettre = pas remis
-
-    if (isOut) out.push(rec);
-    if (isToGive) toGive.push(rec);
-  }
-
-  // éviter doublons
-  const outIds = new Set(out.map(r => r.id));
-  const toGiveFiltered = toGive.filter(r => !outIds.has(r.id));
-
-  return { out, toGive: toGiveFiltered };
 }
 
 function render(){
@@ -287,7 +317,6 @@ function bind(){
       const dateRemise = card.querySelector(".dateRemise").value;
       const dateRecup = card.querySelector(".dateRecup").value;
 
-      // ergonomie: si montant vide => on met le placeholder (prix total)
       if (!montant) {
         const ph = card.querySelector(".montant").getAttribute("placeholder") || "";
         if (ph) montant = ph;
