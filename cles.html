@@ -187,8 +187,8 @@ function renderCard(rec,isOut){
   const jeu=field(f,"Jeu de clés")||"";
   const paye=field(f,"Payé ?")||"";
   const montant=field(f,"Montant payé") ?? "";
-  const dateRemise=(field(f,"Date de remise")||"").slice(0,10);
-  const dateRecup=(field(f,"Date de récupération")||"").slice(0,10);
+  const dateRemise=formatFR(field(f,"Date de début"));
+  const dateRecup=formatFR(field(f,"Date de fin"));
 
   const warnAptUnknown = (!aptKey)
     ? `<div class="warn">⚠️ Appartement non reconnu : <b>${esc(String(apt||""))}</b>. Du coup, aucun trousseau n’est proposé (sécurité). Vérifie le libellé dans Airtable.</div>`
