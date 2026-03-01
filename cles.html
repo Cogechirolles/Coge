@@ -14,7 +14,6 @@
     .wrap{max-width:1100px;margin:18px auto;padding:0 12px}
     .topline{display:flex;gap:10px;align-items:flex-end;justify-content:space-between;margin:8px 0 12px}
     .small{font-size:13px;color:#555}
-
     .filters{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
     select{padding:9px 10px;border:1px solid #d8dbe5;border-radius:10px;background:#fff;font-weight:700}
 
@@ -58,7 +57,7 @@
   <div class="topline">
     <div>
       <div style="font-weight:900;font-size:18px">Gestion des clés</div>
-      <div class="small">Validées (en cours/à venir) + clés non rendues</div>
+      <div class="small">Validées : à remettre (pas encore remises) + à récupérer (trousseau non rendu)</div>
     </div>
     <div class="filters">
       <label class="small" for="aptFilter">Appartement</label>
@@ -72,16 +71,16 @@
   </div>
 
   <div class="sectionTitle">
-    <div class="h">À récupérer (clés non rendues)</div>
+    <div class="h">À récupérer (trousseau non rendu)</div>
     <div class="pill red" id="pillOut">…</div>
   </div>
   <div id="listOut"></div>
 
   <div class="sectionTitle">
-    <div class="h">À remettre / en cours</div>
-    <div class="pill gray" id="pillIn">…</div>
+    <div class="h">À remettre (clés pas encore données)</div>
+    <div class="pill gray" id="pillToGive">…</div>
   </div>
-  <div id="listIn"></div>
+  <div id="listToGive"></div>
 </div>
 
 <script>
@@ -151,28 +150,27 @@ function renderCard(rec, isOut){
   const apt = Array.isArray(field(f,"Appartement")) ? field(f,"Appartement")[0] : (field(f,"Appartement")||"");
   const dd = (field(f,"Date de début")||"").slice(0,10);
   const df = (field(f,"Date de fin")||"").slice(0,10);
-  const prix = field(f,"Prix total");
 
   const jeu = field(f,"Jeu de clés") || "";
   const paye = field(f,"Payé ?") || "";
   const montant = (field(f,"Montant payé") ?? "");
+  const prixTotal = field(f,"Prix total");
   const dateRemise = (field(f,"Date de remise")||"").slice(0,10);
   const dateRecup = (field(f,"Date de récupération")||"").slice(0,10);
 
-  // ergonomie: pré-remplir visuellement si vide
   const montantValue = (montant === "" || montant === null || montant === undefined) ? "" : montant;
-  const montantPlaceholder = (prix!==undefined && prix!==null) ? String(prix) : "";
+  const montantPlaceholder = (prixTotal!==undefined && prixTotal!==null) ? String(prixTotal) : "";
 
   const warn = (jeu && unavailableNames.includes(jeu))
-    ? `<div class="warn">🔒 Jeu de clés "${esc(jeu)}" actuellement sorti. Il restera indisponible tant que "Date de récupération" n’est pas remplie.</div>`
+    ? `<div class="warn">🔒 Jeu de clés "${esc(jeu)}" sorti : indisponible tant que "Date de récupération" n’est pas remplie.</div>`
     : "";
 
   return `
   <div class="card ${isOut ? "out":""}" data-id="${esc(recordId)}">
     <div class="headrow">
-      <div class="title">${esc(apt)} • ${esc(dd)} → ${esc(df)} • <span class="small">Prix total : <b>${(prix!==undefined && prix!==null)?esc(prix)+" €":"-"}</b></span></div>
+      <div class="title">${esc(apt)} • ${esc(dd)} → ${esc(df)}</div>
       <div style="display:flex;gap:8px;align-items:center">
-        ${isOut ? `<span class="badge red">CLÉS NON RENDUES</span>` : `<span class="badge gray">OK</span>`}
+        ${isOut ? `<span class="badge red">TRUSSEAU NON RENDU</span>` : `<span class="badge gray">À REMETTRE</span>`}
         <span class="badge gray">#${esc(recordId.slice(-6))}</span>
       </div>
     </div>
@@ -203,7 +201,6 @@ function renderCard(rec, isOut){
       <div>
         <label>Montant payé (€)</label>
         <input class="montant" type="number" step="0.01" value="${esc(montantValue)}" placeholder="${esc(montantPlaceholder)}" />
-        <div class="hint">Si vide, mets le prix total (ex: ${esc(montantPlaceholder||"")} €).</div>
       </div>
 
       <div>
@@ -228,35 +225,52 @@ function renderCard(rec, isOut){
 }
 
 function splitRecords(records){
-  const out = [];
-  const inn = [];
+  const out = [];     // trousseau non rendu
+  const toGive = [];  // clés pas encore remises
+
   for (const rec of records) {
     const f = rec.fields || {};
+    const dateRemise = (field(f,"Date de remise")||"").slice(0,10);
     const dateRecup = (field(f,"Date de récupération")||"").slice(0,10);
-    const isOut = !dateRecup; // non rendu
-    if (isOut) out.push(rec); else inn.push(rec);
+    const jeu = field(f,"Jeu de clés") || "";
+
+    const isOut = !!jeu && !dateRecup;    // jeu attribué, pas récupéré
+    const isToGive = !dateRemise;         // pas encore remis
+
+    // Une réservation peut être dans "À remettre" même si elle n’a pas encore de jeu.
+    if (isOut) out.push(rec);
+    if (isToGive) toGive.push(rec);
   }
-  return { out, inn };
+
+  // Option ergonomique: éviter les doublons visuels
+  // Si une réservation est "out", on ne la remet pas dans "toGive"
+  const outIds = new Set(out.map(r => r.id));
+  const toGiveFiltered = toGive.filter(r => !outIds.has(r.id));
+
+  return { out, toGive: toGiveFiltered };
 }
 
 function render(){
-  const { out, inn } = splitRecords(allRecords);
+  const { out, toGive } = splitRecords(allRecords);
 
-  // filter by apartment
   const outF = out.filter(r=>{
     const apt = Array.isArray(r.fields?.["Appartement"]) ? r.fields["Appartement"][0] : r.fields?.["Appartement"];
     return matchAptFilter(apt);
   });
-  const innF = inn.filter(r=>{
+
+  const toGiveF = toGive.filter(r=>{
     const apt = Array.isArray(r.fields?.["Appartement"]) ? r.fields["Appartement"][0] : r.fields?.["Appartement"];
     return matchAptFilter(apt);
   });
 
   document.getElementById("pillOut").textContent = `${outF.length} à récupérer`;
-  document.getElementById("pillIn").textContent = `${innF.length} en cours/à venir`;
+  document.getElementById("pillToGive").textContent = `${toGiveF.length} à remettre`;
 
-  document.getElementById("listOut").innerHTML = outF.length ? outF.map(r=>renderCard(r,true)).join("") : `<div class="small">Rien à récupérer.</div>`;
-  document.getElementById("listIn").innerHTML = innF.length ? innF.map(r=>renderCard(r,false)).join("") : `<div class="small">Rien à remettre/en cours.</div>`;
+  document.getElementById("listOut").innerHTML =
+    outF.length ? outF.map(r=>renderCard(r,true)).join("") : `<div class="small">Rien à récupérer.</div>`;
+
+  document.getElementById("listToGive").innerHTML =
+    toGiveF.length ? toGiveF.map(r=>renderCard(r,false)).join("") : `<div class="small">Rien à remettre.</div>`;
 
   bind();
 }
@@ -304,10 +318,8 @@ function bind(){
 }
 
 async function load(){
-  const out = document.getElementById("listOut");
-  const inn = document.getElementById("listIn");
-  out.innerHTML = "Chargement…";
-  inn.innerHTML = "";
+  document.getElementById("listOut").innerHTML = "Chargement…";
+  document.getElementById("listToGive").innerHTML = "";
 
   try{
     const j = await api("/api/cles/list", { method:"GET" });
@@ -315,8 +327,8 @@ async function load(){
     unavailableNames = (j.unavailableKeySets?.names) || [];
     render();
   }catch(e){
-    out.innerHTML = `<div class="err">Erreur : ${esc(e.message)}</div>`;
-    inn.innerHTML = "";
+    document.getElementById("listOut").innerHTML = `<div class="err">Erreur : ${esc(e.message)}</div>`;
+    document.getElementById("listToGive").innerHTML = "";
   }
 }
 
