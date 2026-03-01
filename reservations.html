@@ -9,6 +9,8 @@
     header{display:flex;gap:10px;align-items:center;justify-content:space-between;padding:14px 16px;background:#fff;border-bottom:1px solid #eceef5}
     header .left{display:flex;gap:10px;align-items:center}
     header a{color:#111;text-decoration:none;font-weight:600}
+    .right{display:flex;gap:10px;align-items:center}
+    .btn{padding:8px 10px;border-radius:10px;border:1px solid #d8dbe5;background:#fff;cursor:pointer;font-weight:700}
     .wrap{max-width:1100px;margin:18px auto;padding:0 12px}
     .card{background:#fff;border:1px solid #eceef5;border-radius:12px;padding:14px;margin:12px 0;box-shadow:0 4px 18px rgba(0,0,0,.05)}
     .row{display:grid;grid-template-columns: 160px 160px 1fr 1fr 180px 160px;gap:10px;align-items:end}
@@ -29,7 +31,10 @@
     <a href="reservations.html">Réservations</a>
     <a href="cles.html">Gestion des clés</a>
   </div>
-  <div class="small" id="who"></div>
+  <div class="right">
+    <div class="small" id="who"></div>
+    <button class="btn" id="logout">Déconnexion</button>
+  </div>
 </header>
 
 <div class="wrap">
@@ -46,16 +51,21 @@
 
 <script>
 const WORKER_BASE_URL = "https://pageadministration.cogechirolles.workers.dev";
+
+function logout(){
+  localStorage.removeItem("coge_admin_token");
+  localStorage.removeItem("coge_admin_name");
+  window.location.href = "login.html";
+}
+
 const token = localStorage.getItem("coge_admin_token");
 const adminName = localStorage.getItem("coge_admin_name") || "";
 document.getElementById("who").textContent = adminName ? `Connecté : ${adminName}` : "";
+document.getElementById("logout").addEventListener("click", logout);
 
 if (!token) window.location.href = "login.html";
 
 function esc(s){return String(s??"").replace(/[&<>"']/g,m=>({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[m]));}
-function toISODate(d){ // from "YYYY-MM-DD" input already ok
-  return d;
-}
 
 async function api(path, opts={}){
   const r = await fetch(`${WORKER_BASE_URL}${path}`, {
@@ -66,14 +76,15 @@ async function api(path, opts={}){
       "content-type": "application/json"
     }
   });
-  const j = await r.json();
-  if (!j.ok) throw new Error(j.error || "Erreur API");
+  const j = await r.json().catch(()=>({ok:false,error:"Réponse API invalide"}));
+  if (!j.ok) {
+    if (r.status === 401) logout(); // token expiré -> retour login
+    throw new Error(j.error || "Erreur API");
+  }
   return j;
 }
 
-function field(fields, name){
-  return fields?.[name];
-}
+function field(fields, name){ return fields?.[name]; }
 
 function renderCard(item){
   const f = item.fields || {};
@@ -157,8 +168,8 @@ function bind(){
   document.querySelectorAll(".card").forEach(card=>{
     const id = card.getAttribute("data-id");
     const getDates = ()=>({
-      dateDebut: toISODate(card.querySelector(".dateDebut").value),
-      dateFin: toISODate(card.querySelector(".dateFin").value),
+      dateDebut: card.querySelector(".dateDebut").value,
+      dateFin: card.querySelector(".dateFin").value,
     });
 
     card.querySelector(".save").addEventListener("click", async ()=>{
