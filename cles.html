@@ -8,21 +8,37 @@
     body{font-family:system-ui,Segoe UI,Roboto,Arial;margin:0;background:#f6f7fb}
     header{display:flex;gap:10px;align-items:center;justify-content:space-between;padding:14px 16px;background:#fff;border-bottom:1px solid #eceef5}
     header .left{display:flex;gap:10px;align-items:center}
-    header a{color:#111;text-decoration:none;font-weight:600}
+    header a{color:#111;text-decoration:none;font-weight:800}
     .right{display:flex;gap:10px;align-items:center}
-    .btn{padding:8px 10px;border-radius:10px;border:1px solid #d8dbe5;background:#fff;cursor:pointer;font-weight:700}
-
+    .btn{padding:8px 10px;border-radius:10px;border:1px solid #d8dbe5;background:#fff;cursor:pointer;font-weight:800}
     .wrap{max-width:1100px;margin:18px auto;padding:0 12px}
-    .card{background:#fff;border:1px solid #eceef5;border-radius:12px;padding:14px;margin:12px 0;box-shadow:0 4px 18px rgba(0,0,0,.05)}
-    .row{display:grid;grid-template-columns: 1.2fr 170px 170px 190px 140px 140px;gap:10px;align-items:end}
-    label{display:block;font-size:12px;color:#555;margin-bottom:5px}
-    input,select{width:100%;padding:9px 10px;border:1px solid #d8dbe5;border-radius:10px;font-size:14px;background:#fff}
-    .meta{font-size:13px;color:#333}
-    .topline{display:flex;gap:10px;align-items:center;justify-content:space-between;margin:8px 0 12px}
+    .topline{display:flex;gap:10px;align-items:flex-end;justify-content:space-between;margin:8px 0 12px}
     .small{font-size:13px;color:#555}
+
+    .filters{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+    select{padding:9px 10px;border:1px solid #d8dbe5;border-radius:10px;background:#fff;font-weight:700}
+
+    .sectionTitle{display:flex;align-items:center;justify-content:space-between;margin:18px 0 8px}
+    .sectionTitle .h{font-weight:900;font-size:16px}
+    .pill{display:inline-flex;align-items:center;gap:8px;padding:6px 10px;border-radius:999px;border:1px solid #eceef5;background:#fff;font-size:13px;font-weight:900}
+    .pill.red{border-color:#ffd2d2;background:#fff3f3;color:#8a0000}
+    .pill.gray{border-color:#e6e6e6;background:#fafafa;color:#444}
+
+    .card{background:#fff;border:1px solid #eceef5;border-radius:12px;padding:14px;margin:12px 0;box-shadow:0 4px 18px rgba(0,0,0,.05)}
+    .card.out{border-color:#ffd2d2}
+    .headrow{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px}
+    .title{font-weight:900}
+    .badge{display:inline-flex;align-items:center;padding:6px 10px;border-radius:999px;font-size:12px;font-weight:900;border:1px solid #eceef5;background:#fff}
+    .badge.red{border-color:#ffd2d2;background:#fff3f3;color:#8a0000}
+    .badge.gray{border-color:#e6e6e6;background:#fafafa;color:#444}
+
+    .row{display:grid;grid-template-columns: 1.1fr 170px 170px 190px 140px 140px;gap:10px;align-items:end}
+    label{display:block;font-size:12px;color:#555;margin-bottom:5px}
+    input{width:100%;padding:9px 10px;border:1px solid #d8dbe5;border-radius:10px;font-size:14px;background:#fff}
+    .meta{font-size:13px;color:#333}
     .warn{margin-top:10px;padding:10px;border-radius:10px;background:#fff8e6;border:1px solid #ffe1a3;color:#7a5200;font-size:13px}
     .err{margin-top:10px;padding:10px;border-radius:10px;background:#fff3f3;border:1px solid #ffd2d2;color:#8a0000;font-size:13px}
-    button{padding:9px 12px;border-radius:10px;border:1px solid #d8dbe5;background:#fff;cursor:pointer;font-weight:600}
+    button{padding:9px 12px;border-radius:10px;border:1px solid #d8dbe5;background:#fff;cursor:pointer;font-weight:800}
     button.primary{background:#111;color:#fff;border-color:#111}
   </style>
 </head>
@@ -41,13 +57,31 @@
 <div class="wrap">
   <div class="topline">
     <div>
-      <div style="font-weight:700">Gestion des clés</div>
+      <div style="font-weight:900;font-size:18px">Gestion des clés</div>
       <div class="small">Validées (en cours/à venir) + clés non rendues</div>
     </div>
-    <button id="reload">Rafraîchir</button>
+    <div class="filters">
+      <label class="small" for="aptFilter">Appartement</label>
+      <select id="aptFilter">
+        <option value="">Tous</option>
+        <option value="Cavalaire">Cavalaire</option>
+        <option value="Serre-Chevalier">Serre-Chevalier</option>
+      </select>
+      <button class="btn" id="reload">Rafraîchir</button>
+    </div>
   </div>
 
-  <div id="list"></div>
+  <div class="sectionTitle">
+    <div class="h">À récupérer (clés non rendues)</div>
+    <div class="pill red" id="pillOut">…</div>
+  </div>
+  <div id="listOut"></div>
+
+  <div class="sectionTitle">
+    <div class="h">À remettre / en cours</div>
+    <div class="pill gray" id="pillIn">…</div>
+  </div>
+  <div id="listIn"></div>
 </div>
 
 <script>
@@ -63,7 +97,6 @@ const token = localStorage.getItem("coge_admin_token");
 const adminName = localStorage.getItem("coge_admin_name") || "";
 document.getElementById("who").textContent = adminName ? `Connecté : ${adminName}` : "";
 document.getElementById("logout").addEventListener("click", logout);
-
 if (!token) window.location.href = "login.html";
 
 function esc(s){return String(s??"").replace(/[&<>"']/g,m=>({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[m]));}
@@ -78,16 +111,16 @@ async function api(path, opts={}){
       "content-type": "application/json"
     }
   });
-
   const j = await r.json().catch(()=>({ok:false,error:"Réponse API invalide"}));
   if (!j.ok) {
-    if (r.status === 401) logout(); // token expiré/invalide
+    if (r.status === 401) logout();
     throw new Error(j.error || "Erreur API");
   }
   return j;
 }
 
 let unavailableNames = [];
+let allRecords = [];
 
 function renderKeyOptions(currentValue){
   const all = [
@@ -103,7 +136,13 @@ function renderKeyOptions(currentValue){
   }).join("");
 }
 
-function renderCard(rec){
+function matchAptFilter(apt){
+  const v = document.getElementById("aptFilter").value;
+  if (!v) return true;
+  return String(apt||"").includes(v);
+}
+
+function renderCard(rec, isOut){
   const f = rec.fields || {};
   const recordId = rec.id;
 
@@ -120,21 +159,32 @@ function renderCard(rec){
   const dateRemise = (field(f,"Date de remise")||"").slice(0,10);
   const dateRecup = (field(f,"Date de récupération")||"").slice(0,10);
 
+  // ergonomie: pré-remplir visuellement si vide
+  const montantValue = (montant === "" || montant === null || montant === undefined) ? "" : montant;
+  const montantPlaceholder = (prix!==undefined && prix!==null) ? String(prix) : "";
+
   const warn = (jeu && unavailableNames.includes(jeu))
-    ? `<div class="warn">🔒 Jeu de clés "${esc(jeu)}" actuellement sorti (normal si c’est ce séjour). Il restera indisponible tant que "Date de récupération" n’est pas remplie.</div>`
+    ? `<div class="warn">🔒 Jeu de clés "${esc(jeu)}" actuellement sorti. Il restera indisponible tant que "Date de récupération" n’est pas remplie.</div>`
     : "";
 
   return `
-  <div class="card" data-id="${esc(recordId)}">
+  <div class="card ${isOut ? "out":""}" data-id="${esc(recordId)}">
+    <div class="headrow">
+      <div class="title">${esc(apt)} • ${esc(dd)} → ${esc(df)} • <span class="small">Prix total : <b>${(prix!==undefined && prix!==null)?esc(prix)+" €":"-"}</b></span></div>
+      <div style="display:flex;gap:8px;align-items:center">
+        ${isOut ? `<span class="badge red">CLÉS NON RENDUES</span>` : `<span class="badge gray">OK</span>`}
+        <span class="badge gray">#${esc(recordId.slice(-6))}</span>
+      </div>
+    </div>
+
     <div class="meta" style="margin-bottom:10px">
-      <b>${esc(nomA)}</b>${nomE?` — Extérieur : <b>${esc(nomE)}</b>`:""} • <b>${esc(apt)}</b>
-      <div class="small">${esc(dd)} → ${esc(df)} • Prix total : <b>${(prix!==undefined && prix!==null)?esc(prix)+" €":"-"}</b></div>
+      <b>${esc(nomA)}</b>${nomE?` — Extérieur : <b>${esc(nomE)}</b>`:""}
     </div>
 
     <div class="row">
       <div>
         <label>Jeu de clés</label>
-        <select class="jeu">
+        <select class="jeu" style="width:100%;padding:9px 10px;border:1px solid #d8dbe5;border-radius:10px;background:#fff;font-weight:700">
           <option value="">—</option>
           ${renderKeyOptions(jeu)}
         </select>
@@ -142,7 +192,7 @@ function renderCard(rec){
 
       <div>
         <label>Payé ?</label>
-        <select class="paye">
+        <select class="paye" style="width:100%;padding:9px 10px;border:1px solid #d8dbe5;border-radius:10px;background:#fff;font-weight:700">
           <option value="">—</option>
           <option value="Sumup" ${paye==="Sumup"?"selected":""}>Sumup</option>
           <option value="Chèque" ${paye==="Chèque"?"selected":""}>Chèque</option>
@@ -152,7 +202,8 @@ function renderCard(rec){
 
       <div>
         <label>Montant payé (€)</label>
-        <input class="montant" type="number" step="0.01" value="${esc(montant)}" placeholder="${(prix!==undefined && prix!==null)?esc(prix):""}" />
+        <input class="montant" type="number" step="0.01" value="${esc(montantValue)}" placeholder="${esc(montantPlaceholder)}" />
+        <div class="hint">Si vide, mets le prix total (ex: ${esc(montantPlaceholder||"")} €).</div>
       </div>
 
       <div>
@@ -176,19 +227,38 @@ function renderCard(rec){
   </div>`;
 }
 
-async function load(){
-  const list = document.getElementById("list");
-  list.innerHTML = "Chargement…";
-  try{
-    const j = await api("/api/cles/list", { method:"GET" });
-    const recs = j.records || [];
-    unavailableNames = (j.unavailableKeySets?.names) || [];
-    if (!recs.length) { list.innerHTML = "<div class='small'>Aucune réservation à gérer.</div>"; return; }
-    list.innerHTML = recs.map(renderCard).join("");
-    bind();
-  }catch(e){
-    list.innerHTML = `<div class="err">Erreur : ${esc(e.message)}</div>`;
+function splitRecords(records){
+  const out = [];
+  const inn = [];
+  for (const rec of records) {
+    const f = rec.fields || {};
+    const dateRecup = (field(f,"Date de récupération")||"").slice(0,10);
+    const isOut = !dateRecup; // non rendu
+    if (isOut) out.push(rec); else inn.push(rec);
   }
+  return { out, inn };
+}
+
+function render(){
+  const { out, inn } = splitRecords(allRecords);
+
+  // filter by apartment
+  const outF = out.filter(r=>{
+    const apt = Array.isArray(r.fields?.["Appartement"]) ? r.fields["Appartement"][0] : r.fields?.["Appartement"];
+    return matchAptFilter(apt);
+  });
+  const innF = inn.filter(r=>{
+    const apt = Array.isArray(r.fields?.["Appartement"]) ? r.fields["Appartement"][0] : r.fields?.["Appartement"];
+    return matchAptFilter(apt);
+  });
+
+  document.getElementById("pillOut").textContent = `${outF.length} à récupérer`;
+  document.getElementById("pillIn").textContent = `${innF.length} en cours/à venir`;
+
+  document.getElementById("listOut").innerHTML = outF.length ? outF.map(r=>renderCard(r,true)).join("") : `<div class="small">Rien à récupérer.</div>`;
+  document.getElementById("listIn").innerHTML = innF.length ? innF.map(r=>renderCard(r,false)).join("") : `<div class="small">Rien à remettre/en cours.</div>`;
+
+  bind();
 }
 
 function bind(){
@@ -202,9 +272,15 @@ function bind(){
 
       const jeu = card.querySelector(".jeu").value;
       const paye = card.querySelector(".paye").value;
-      const montant = card.querySelector(".montant").value;
+      let montant = card.querySelector(".montant").value;
       const dateRemise = card.querySelector(".dateRemise").value;
       const dateRecup = card.querySelector(".dateRecup").value;
+
+      // ergonomie: si montant vide => on met le placeholder (prix total)
+      if (!montant) {
+        const ph = card.querySelector(".montant").getAttribute("placeholder") || "";
+        if (ph) montant = ph;
+      }
 
       try{
         await api("/api/cles/update", {
@@ -227,7 +303,25 @@ function bind(){
   });
 }
 
+async function load(){
+  const out = document.getElementById("listOut");
+  const inn = document.getElementById("listIn");
+  out.innerHTML = "Chargement…";
+  inn.innerHTML = "";
+
+  try{
+    const j = await api("/api/cles/list", { method:"GET" });
+    allRecords = j.records || [];
+    unavailableNames = (j.unavailableKeySets?.names) || [];
+    render();
+  }catch(e){
+    out.innerHTML = `<div class="err">Erreur : ${esc(e.message)}</div>`;
+    inn.innerHTML = "";
+  }
+}
+
 document.getElementById("reload").addEventListener("click", load);
+document.getElementById("aptFilter").addEventListener("change", render);
 load();
 </script>
 </body>
