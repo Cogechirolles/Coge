@@ -75,7 +75,17 @@ document.getElementById("logout").addEventListener("click",logout);
 
 function esc(s){return String(s??"").replace(/[&<>"']/g,m=>({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[m]));}
 function field(f,n){return f?.[n];}
+function formatFR(dateStr){
+  if(!dateStr) return "";
+  const d = new Date(dateStr);
+  if(isNaN(d)) return dateStr;
+  const jour = String(d.getDate()).padStart(2,'0');
+  const mois = String(d.getMonth()+1).padStart(2,'0');
+  const annee = d.getFullYear();
+  return `${jour}/${mois}/${annee}`;
+}
 
+async function api(path,opts={}){
 async function api(path,opts={}){
   const r = await fetch(WORKER_BASE_URL+path,{
     ...opts,
