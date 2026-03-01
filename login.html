@@ -11,7 +11,9 @@
     label{display:block;font-size:13px;margin:12px 0 6px}
     input{width:100%;padding:10px 12px;border:1px solid #d8dbe5;border-radius:10px;font-size:14px}
     button{width:100%;margin-top:14px;padding:10px 12px;border:0;border-radius:10px;background:#111;color:#fff;font-weight:600;cursor:pointer}
+    button.secondary{background:#fff;color:#111;border:1px solid #d8dbe5}
     .err{margin-top:12px;color:#b00020;font-size:13px}
+    .info{margin-top:10px;color:#333;font-size:13px}
     .links{margin-top:14px;font-size:13px;color:#444}
     .links a{color:#111}
   </style>
@@ -20,14 +22,20 @@
   <div class="wrap">
     <h1>Connexion administrateur</h1>
 
-    <label>Login</label>
-    <input id="login" autocomplete="username" />
+    <div id="already" class="info" style="display:none"></div>
+    <button id="go" class="secondary" style="display:none">Aller à l’administration</button>
+    <button id="clear" class="secondary" style="display:none">Se déconnecter</button>
 
-    <label>Password</label>
-    <input id="password" type="password" autocomplete="current-password" />
+    <div id="form">
+      <label>Login</label>
+      <input id="login" autocomplete="username" />
 
-    <button id="btn">Se connecter</button>
-    <div id="err" class="err"></div>
+      <label>Password</label>
+      <input id="password" type="password" autocomplete="current-password" />
+
+      <button id="btn">Se connecter</button>
+      <div id="err" class="err"></div>
+    </div>
 
     <div class="links">
       Après connexion : <a href="reservations.html">Réservations</a> • <a href="cles.html">Gestion des clés</a>
@@ -37,6 +45,39 @@
 <script>
 const WORKER_BASE_URL = "https://pageadministration.cogechirolles.workers.dev";
 const $ = (id)=>document.getElementById(id);
+
+function logout(){
+  localStorage.removeItem("coge_admin_token");
+  localStorage.removeItem("coge_admin_name");
+  window.location.reload();
+}
+
+async function checkSession(){
+  const token = localStorage.getItem("coge_admin_token");
+  const name = localStorage.getItem("coge_admin_name") || "";
+  if (!token) return;
+
+  // Vérifie côté serveur que le token est toujours valide
+  try{
+    const r = await fetch(`${WORKER_BASE_URL}/api/me`, {
+      headers: { "authorization": `Bearer ${token}` }
+    });
+    const j = await r.json();
+    if (!j.ok) throw new Error("token invalid");
+
+    $("already").style.display = "block";
+    $("already").innerHTML = `Déjà connecté${name ? " en tant que <b>"+name+"</b>" : ""}.`;
+    $("go").style.display = "block";
+    $("clear").style.display = "block";
+    $("form").style.display = "none";
+  }catch{
+    // token expiré/invalide -> purge
+    logout();
+  }
+}
+
+$("go").addEventListener("click", ()=> window.location.href="reservations.html");
+$("clear").addEventListener("click", logout);
 
 $("btn").addEventListener("click", async () => {
   $("err").textContent = "";
@@ -58,6 +99,8 @@ $("btn").addEventListener("click", async () => {
     $("err").textContent = e.message;
   }
 });
+
+checkSession();
 </script>
 </body>
 </html>
