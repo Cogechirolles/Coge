@@ -76,15 +76,6 @@ document.getElementById("logout").addEventListener("click",logout);
 function esc(s){return String(s??"").replace(/[&<>"']/g,m=>({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[m]));}
 function field(f,n){return f?.[n];}
 
-// ✅ Affichage JJ/MM/AAAA pour les dates dans le texte
-function formatFR(dateStr){
-  if(!dateStr) return "";
-  const s = String(dateStr).slice(0,10); // support YYYY-MM-DD ou ISO
-  const m = s.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-  if(!m) return s;
-  return `${m[3]}/${m[2]}/${m[1]}`;
-}
-
 async function api(path,opts={}){
   const r = await fetch(WORKER_BASE_URL+path,{
     ...opts,
@@ -129,17 +120,17 @@ function getAptKey(aptField){
 function renderKeyOptions(currentValue, aptKey){
   const allowed = KEYSETS[aptKey] || [];
 
-  // Si appartement inconnu => on ne propose rien (sauf valeur actuelle)
+  // si appartement inconnu => pas de trousseaux proposés (sauf valeur existante)
   let choices = [...allowed];
 
-  // On retire les indisponibles (non rendus) sauf si c’est la valeur actuelle
+  // on enlève les indisponibles (non rendus), sauf si c’est la valeur actuelle
   choices = choices.filter(name => {
     const isUnavailable = unavailableNames.includes(name);
     const isCurrent = currentValue === name;
     return !isUnavailable || isCurrent;
   });
 
-  if(currentValue && !choices.includes(currentValue)) choices.unshift(currentValue);
+  if (currentValue && !choices.includes(currentValue)) choices.unshift(currentValue);
 
   const opts = [`<option value="">—</option>`];
   for (const name of choices) {
@@ -166,6 +157,20 @@ function splitRecords(records){
   return {out,toGive:toGive.filter(r=>!outIds.has(r.id))};
 }
 
+// --- Utilitaire : valeur préremplie pour Montant payé
+function montantPrefill(fields){
+  const mp = fields?.["Montant payé"];
+  const pt = fields?.["Prix total"];
+
+  // Si Montant payé existe (même 0), on le garde
+  if (mp !== undefined && mp !== null && String(mp).trim() !== "") return String(mp);
+
+  // Sinon on met Prix total si dispo
+  if (pt !== undefined && pt !== null && String(pt).trim() !== "") return String(pt);
+
+  return "";
+}
+
 function renderCard(rec,isOut){
   const f=rec.fields||{};
   const aptField=field(f,"Appartement");
@@ -174,12 +179,9 @@ function renderCard(rec,isOut){
 
   const jeu=field(f,"Jeu de clés")||"";
   const paye=field(f,"Payé ?")||"";
-  const montant=field(f,"Montant payé") ?? "";
+  const montantValue = montantPrefill(f); // ✅ prérempli avec Prix total si Montant payé vide
   const dateRemise=(field(f,"Date de remise")||"").slice(0,10);
   const dateRecup=(field(f,"Date de récupération")||"").slice(0,10);
-
-  const dDeb = formatFR(field(f,"Date de début"));
-  const dFin = formatFR(field(f,"Date de fin"));
 
   const warnAptUnknown = (!aptKey)
     ? `<div class="warn">⚠️ Appartement non reconnu : <b>${esc(String(apt||""))}</b>. Aucun trousseau n’est proposé (sécurité). Vérifie le libellé dans Airtable.</div>`
@@ -191,7 +193,7 @@ function renderCard(rec,isOut){
       <strong>${esc(field(f,"Nom de l'abonné")||"")}</strong>
       ${field(f,"Nom de l’Extérieur")?` — ${esc(field(f,"Nom de l’Extérieur"))}`:""}
       • ${esc(String(apt||""))}
-      • ${esc(dDeb)} → ${esc(dFin)}
+      • ${esc((field(f,"Date de début")||"").slice(0,10))} → ${esc((field(f,"Date de fin")||"").slice(0,10))}
       ${isOut?`<span class="badge red">NON RENDU</span>`:`<span class="badge gray">À REMETTRE</span>`}
     </div>
 
@@ -213,7 +215,7 @@ function renderCard(rec,isOut){
 
       <div>
         <label>Montant payé (€)</label>
-        <input type="number" step="0.01" class="montant" value="${esc(montant)}">
+        <input type="number" step="0.01" class="montant" value="${esc(montantValue)}">
       </div>
 
       <div>
