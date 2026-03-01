@@ -225,25 +225,22 @@ function renderCard(rec, isOut){
 }
 
 function splitRecords(records){
-  const out = [];     // trousseau non rendu
+  const out = [];     // clés sorties mais pas rendues
   const toGive = [];  // clés pas encore remises
 
   for (const rec of records) {
     const f = rec.fields || {};
     const dateRemise = (field(f,"Date de remise")||"").slice(0,10);
     const dateRecup = (field(f,"Date de récupération")||"").slice(0,10);
-    const jeu = field(f,"Jeu de clés") || "";
 
-    const isOut = !!jeu && !dateRecup;    // jeu attribué, pas récupéré
-    const isToGive = !dateRemise;         // pas encore remis
+    const isOut = !!dateRemise && !dateRecup; // ✅ sorti = remise faite
+    const isToGive = !dateRemise;             // ✅ à remettre = pas remis
 
-    // Une réservation peut être dans "À remettre" même si elle n’a pas encore de jeu.
     if (isOut) out.push(rec);
     if (isToGive) toGive.push(rec);
   }
 
-  // Option ergonomique: éviter les doublons visuels
-  // Si une réservation est "out", on ne la remet pas dans "toGive"
+  // éviter doublons
   const outIds = new Set(out.map(r => r.id));
   const toGiveFiltered = toGive.filter(r => !outIds.has(r.id));
 
