@@ -76,25 +76,13 @@ document.getElementById("logout").addEventListener("click",logout);
 function esc(s){return String(s??"").replace(/[&<>"']/g,m=>({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[m]));}
 function field(f,n){return f?.[n];}
 
-// ✅ Affichage JJ/MM/AAAA pour les dates dans le texte
-function formatFR(dateStr){
-  if(!dateStr) return "";
-  const s = String(dateStr).slice(0,10); // support YYYY-MM-DD ou ISO
-  const m = s.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-  if(!m) return s;
-  return `${m[3]}/${m[2]}/${m[1]}`;
-}
-
 async function api(path,opts={}){
   const r = await fetch(WORKER_BASE_URL+path,{
     ...opts,
     headers:{...(opts.headers||{}),"authorization":"Bearer "+token,"content-type":"application/json"}
   });
   const j = await r.json().catch(()=>({ok:false,error:"Réponse API invalide"}));
-  if(!j.ok){
-    if(r.status===401) logout();
-    throw new Error(j.error || "Erreur API");
-  }
+  if(!j.ok){ if(r.status===401) logout(); throw new Error(j.error || "Erreur API"); }
   return j;
 }
 
@@ -107,11 +95,12 @@ const KEYSETS = {
   serre: ["Serre-Chevalier N°1","Serre-Chevalier N°2","Serre-Chevalier N°3"]
 };
 
+// Normalisation robuste (casse + accents + tirets)
 function norm(str){
   return String(str || "")
     .toLowerCase()
     .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[\u0300-\u036f]/g, "") // accents
     .replace(/[’']/g, "'")
     .replace(/[-_]/g, " ")
     .replace(/\s+/g, " ")
@@ -119,20 +108,28 @@ function norm(str){
 }
 
 function getAptKey(aptField){
-  const raw = JSON.stringify(aptField ?? "");
-  const s = norm(raw);
+  const apt = Array.isArray(aptField) ? aptField[0] : aptField;
+  const s = norm(apt);
+
+  // Cavalaire
   if (s.includes("cavalaire")) return "cavalaire";
-  if (s.includes("serre") || s.includes("chevalier") || s.includes("serre chevalier")) return "serre";
-  return "";
+
+  // Serre-Chevalier (plusieurs variantes)
+  if (s.includes("serre") || s.includes("chevalier") || s.includes("serre chevalier") || s.includes("serrechevalier")) {
+    return "serre";
+  }
+
+  return ""; // inconnu
 }
 
 function renderKeyOptions(currentValue, aptKey){
   const allowed = KEYSETS[aptKey] || [];
 
-  // Si appartement inconnu => on ne propose rien (sauf valeur actuelle)
+  // Si appartement inconnu : on ne propose rien (sécurité ergonomique),
+  // mais on garde la valeur actuelle si elle existe.
   let choices = [...allowed];
 
-  // On retire les indisponibles (non rendus) sauf si c’est la valeur actuelle
+  // ✅ only free = on enlève ceux indisponibles (non rendus), sauf si c’est la valeur actuelle
   choices = choices.filter(name => {
     const isUnavailable = unavailableNames.includes(name);
     const isCurrent = currentValue === name;
@@ -141,15 +138,20 @@ function renderKeyOptions(currentValue, aptKey){
 
   if(currentValue && !choices.includes(currentValue)) choices.unshift(currentValue);
 
-  const opts = [`<option value="">—</option>`];
-  for (const name of choices) {
-    const isUnavailable = unavailableNames.includes(name);
-    const isCurrent = currentValue === name;
-    const disabled = (isUnavailable && !isCurrent) ? "disabled" : "";
-    const suffix = (isUnavailable && isCurrent) ? " (⚠️ non rendu)" : "";
-    opts.push(`<option value="${esc(name)}" ${name===currentValue?"selected":""} ${disabled}>${esc(name + suffix)}</option>`);
+  if (!choices.length) {
+    return `<option value="">—</option>`;
   }
-  return opts.join("");
+
+  return [
+    `<option value="">—</option>`,
+    ...choices.map(name=>{
+      const isUnavailable = unavailableNames.includes(name);
+      const isCurrent = currentValue === name;
+      const disabled = (isUnavailable && !isCurrent) ? "disabled" : "";
+      const suffix = (isUnavailable && isCurrent) ? " (⚠️ non rendu)" : "";
+      return `<option value="${esc(name)}" ${name===currentValue?"selected":""} ${disabled}>${esc(name + suffix)}</option>`;
+    })
+  ].join("");
 }
 
 function splitRecords(records){
@@ -178,11 +180,8 @@ function renderCard(rec,isOut){
   const dateRemise=(field(f,"Date de remise")||"").slice(0,10);
   const dateRecup=(field(f,"Date de récupération")||"").slice(0,10);
 
-  const dDeb = formatFR(field(f,"Date de début"));
-  const dFin = formatFR(field(f,"Date de fin"));
-
   const warnAptUnknown = (!aptKey)
-    ? `<div class="warn">⚠️ Appartement non reconnu : <b>${esc(String(apt||""))}</b>. Aucun trousseau n’est proposé (sécurité). Vérifie le libellé dans Airtable.</div>`
+    ? `<div class="warn">⚠️ Appartement non reconnu : <b>${esc(String(apt||""))}</b>. Du coup, aucun trousseau n’est proposé (sécurité). Vérifie le libellé dans Airtable.</div>`
     : "";
 
   return `
@@ -191,7 +190,7 @@ function renderCard(rec,isOut){
       <strong>${esc(field(f,"Nom de l'abonné")||"")}</strong>
       ${field(f,"Nom de l’Extérieur")?` — ${esc(field(f,"Nom de l’Extérieur"))}`:""}
       • ${esc(String(apt||""))}
-      • ${esc(dDeb)} → ${esc(dFin)}
+      • ${esc((field(f,"Date de début")||"").slice(0,10))} → ${esc((field(f,"Date de fin")||"").slice(0,10))}
       ${isOut?`<span class="badge red">NON RENDU</span>`:`<span class="badge gray">À REMETTRE</span>`}
     </div>
 
@@ -241,11 +240,8 @@ function render(){
   document.getElementById("pillOut").textContent=out.length;
   document.getElementById("pillToGive").textContent=toGive.length;
 
-  document.getElementById("listOut").innerHTML =
-    out.length ? out.map(r=>renderCard(r,true)).join("") : `<div class="meta">Rien à récupérer.</div>`;
-
-  document.getElementById("listToGive").innerHTML =
-    toGive.length ? toGive.map(r=>renderCard(r,false)).join("") : `<div class="meta">Rien à remettre.</div>`;
+  document.getElementById("listOut").innerHTML = out.length ? out.map(r=>renderCard(r,true)).join("") : `<div class="meta">Rien à récupérer.</div>`;
+  document.getElementById("listToGive").innerHTML = toGive.length ? toGive.map(r=>renderCard(r,false)).join("") : `<div class="meta">Rien à remettre.</div>`;
 
   bind();
 }
