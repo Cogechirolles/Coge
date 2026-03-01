@@ -8,21 +8,35 @@
     body{font-family:system-ui,Segoe UI,Roboto,Arial;margin:0;background:#f6f7fb}
     header{display:flex;gap:10px;align-items:center;justify-content:space-between;padding:14px 16px;background:#fff;border-bottom:1px solid #eceef5}
     header .left{display:flex;gap:10px;align-items:center}
-    header a{color:#111;text-decoration:none;font-weight:600}
+    header a{color:#111;text-decoration:none;font-weight:700}
     .right{display:flex;gap:10px;align-items:center}
-    .btn{padding:8px 10px;border-radius:10px;border:1px solid #d8dbe5;background:#fff;cursor:pointer;font-weight:700}
+    .btn{padding:8px 10px;border-radius:10px;border:1px solid #d8dbe5;background:#fff;cursor:pointer;font-weight:800}
     .wrap{max-width:1100px;margin:18px auto;padding:0 12px}
+    .topline{display:flex;gap:10px;align-items:flex-end;justify-content:space-between;margin:8px 0 12px}
+    .small{font-size:13px;color:#555}
+    .kpi{display:flex;gap:10px;align-items:center}
+    .pill{display:inline-flex;align-items:center;gap:8px;padding:6px 10px;border-radius:999px;border:1px solid #eceef5;background:#fff;font-size:13px;font-weight:800}
+    .pill.red{border-color:#ffd2d2;background:#fff3f3;color:#8a0000}
+    .pill.green{border-color:#cfe9d6;background:#f1fbf4;color:#0d5a24}
     .card{background:#fff;border:1px solid #eceef5;border-radius:12px;padding:14px;margin:12px 0;box-shadow:0 4px 18px rgba(0,0,0,.05)}
+    .card.conf{border-color:#ffd2d2}
+    .headrow{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px}
+    .title{font-weight:900}
+    .badge{display:inline-flex;align-items:center;padding:6px 10px;border-radius:999px;font-size:12px;font-weight:900;border:1px solid #eceef5;background:#fff}
+    .badge.red{border-color:#ffd2d2;background:#fff3f3;color:#8a0000}
+    .badge.gray{border-color:#e6e6e6;background:#fafafa;color:#444}
     .row{display:grid;grid-template-columns: 160px 160px 1fr 1fr 180px 160px;gap:10px;align-items:end}
     label{display:block;font-size:12px;color:#555;margin-bottom:5px}
     input{width:100%;padding:9px 10px;border:1px solid #d8dbe5;border-radius:10px;font-size:14px}
     .meta{font-size:13px;color:#333}
     .conflict{margin-top:10px;padding:10px;border-radius:10px;background:#fff3f3;border:1px solid #ffd2d2;color:#8a0000;font-size:13px}
-    .actions{display:flex;gap:10px;margin-top:12px}
-    button{padding:9px 12px;border-radius:10px;border:1px solid #d8dbe5;background:#fff;cursor:pointer;font-weight:600}
+    .actions{display:flex;gap:10px;margin-top:12px;flex-wrap:wrap}
+    button{padding:9px 12px;border-radius:10px;border:1px solid #d8dbe5;background:#fff;cursor:pointer;font-weight:800}
     button.primary{background:#111;color:#fff;border-color:#111}
-    .topline{display:flex;gap:10px;align-items:center;justify-content:space-between;margin:8px 0 12px}
-    .small{font-size:13px;color:#555}
+    button.danger{background:#fff3f3;border-color:#ffd2d2;color:#8a0000}
+    button.disabled{opacity:.5;cursor:not-allowed}
+    .hint{font-size:12px;color:#666;margin-top:6px}
+    .sep{height:1px;background:#eceef5;margin:10px 0}
   </style>
 </head>
 <body>
@@ -40,10 +54,13 @@
 <div class="wrap">
   <div class="topline">
     <div>
-      <div style="font-weight:700">Demandes en attente</div>
+      <div style="font-weight:900;font-size:18px">Demandes en attente</div>
       <div class="small">Table : <b>Réservations</b> • Statut : <b>En attente</b></div>
     </div>
-    <button id="reload">Rafraîchir</button>
+    <div class="kpi">
+      <div class="pill" id="countPill">…</div>
+      <button class="btn" id="reload">Rafraîchir</button>
+    </div>
   </div>
 
   <div id="list"></div>
@@ -62,7 +79,6 @@ const token = localStorage.getItem("coge_admin_token");
 const adminName = localStorage.getItem("coge_admin_name") || "";
 document.getElementById("who").textContent = adminName ? `Connecté : ${adminName}` : "";
 document.getElementById("logout").addEventListener("click", logout);
-
 if (!token) window.location.href = "login.html";
 
 function esc(s){return String(s??"").replace(/[&<>"']/g,m=>({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[m]));}
@@ -78,13 +94,18 @@ async function api(path, opts={}){
   });
   const j = await r.json().catch(()=>({ok:false,error:"Réponse API invalide"}));
   if (!j.ok) {
-    if (r.status === 401) logout(); // token expiré -> retour login
+    if (r.status === 401) logout();
     throw new Error(j.error || "Erreur API");
   }
   return j;
 }
 
 function field(fields, name){ return fields?.[name]; }
+
+function fmtRange(d1, d2){
+  if (!d1 || !d2) return "";
+  return `${d1} → ${d2}`;
+}
 
 function renderCard(item){
   const f = item.fields || {};
@@ -98,16 +119,27 @@ function renderCard(item){
   const prix = field(f,"Prix total");
 
   const conflicts = item.conflicts || [];
-  const conflictHtml = conflicts.length ? `
+  const hasConflict = conflicts.length > 0;
+
+  const conflictHtml = hasConflict ? `
     <div class="conflict">
-      ⚠️ Conflit détecté (${conflicts.length}) sur <b>${esc(apt)}</b> :
+      ⚠️ <b>Conflit détecté</b> sur <b>${esc(apt)}</b> :
       <ul style="margin:8px 0 0 18px">
         ${conflicts.map(c=>`<li>${esc(c.start)} → ${esc(c.end)}</li>`).join("")}
       </ul>
+      <div class="hint">Tu peux refuser, ou valider quand même si tu sais ce que tu fais.</div>
     </div>` : "";
 
   return `
-  <div class="card" data-id="${esc(recordId)}">
+  <div class="card ${hasConflict ? "conf" : ""}" data-id="${esc(recordId)}" data-conf="${hasConflict ? "1":"0"}">
+    <div class="headrow">
+      <div class="title">${esc(apt)} • ${esc(fmtRange(dateDebut, dateFin))}</div>
+      <div style="display:flex;gap:8px;align-items:center">
+        ${hasConflict ? `<span class="badge red">CONFLIT</span>` : `<span class="badge gray">OK</span>`}
+        <span class="badge gray">#${esc(recordId.slice(-6))}</span>
+      </div>
+    </div>
+
     <div class="row">
       <div>
         <label>Date de début</label>
@@ -143,9 +175,12 @@ function renderCard(item){
 
     ${conflictHtml}
 
+    <div class="sep"></div>
+
     <div class="actions">
-      <button class="primary validate">✅ Valider</button>
-      <button class="refuse">❌ Refuser</button>
+      <button class="primary validate ${hasConflict ? "disabled" : ""}" ${hasConflict ? "disabled":""}>✅ Valider</button>
+      ${hasConflict ? `<button class="primary force">✅ Valider quand même</button>` : ""}
+      <button class="danger refuse">❌ Refuser</button>
     </div>
   </div>`;
 }
@@ -153,13 +188,27 @@ function renderCard(item){
 async function load(){
   const list = document.getElementById("list");
   list.innerHTML = "Chargement…";
+
   try{
     const j = await api("/api/reservations/pending", { method:"GET" });
     const items = j.records || [];
-    if (!items.length) { list.innerHTML = "<div class='small'>Aucune demande en attente.</div>"; return; }
+
+    const conflictCount = items.filter(x => (x.conflicts||[]).length > 0).length;
+
+    const pill = document.getElementById("countPill");
+    pill.className = "pill" + (conflictCount ? " red" : " green");
+    pill.textContent = `${items.length} en attente • ${conflictCount} conflit(s)`;
+
+    if (!items.length) {
+      list.innerHTML = "<div class='small'>Aucune demande en attente.</div>";
+      return;
+    }
+
     list.innerHTML = items.map(renderCard).join("");
     bind();
   }catch(e){
+    document.getElementById("countPill").className = "pill";
+    document.getElementById("countPill").textContent = "Erreur";
     list.innerHTML = `<div class="conflict">Erreur : ${esc(e.message)}</div>`;
   }
 }
@@ -181,7 +230,19 @@ function bind(){
       await load();
     });
 
-    card.querySelector(".validate").addEventListener("click", async ()=>{
+    const validateBtn = card.querySelector(".validate");
+    if (validateBtn) validateBtn.addEventListener("click", async ()=>{
+      if (validateBtn.hasAttribute("disabled")) return;
+      const {dateDebut, dateFin} = getDates();
+      await api("/api/reservations/update", {
+        method:"POST",
+        body: JSON.stringify({ recordId:id, action:"validate", dateDebut, dateFin })
+      });
+      await load();
+    });
+
+    const forceBtn = card.querySelector(".force");
+    if (forceBtn) forceBtn.addEventListener("click", async ()=>{
       const {dateDebut, dateFin} = getDates();
       await api("/api/reservations/update", {
         method:"POST",
