@@ -9,19 +9,21 @@
     header{display:flex;gap:10px;align-items:center;justify-content:space-between;padding:14px 16px;background:#fff;border-bottom:1px solid #eceef5}
     header .left{display:flex;gap:10px;align-items:center}
     header a{color:#111;text-decoration:none;font-weight:600}
+    .right{display:flex;gap:10px;align-items:center}
+    .btn{padding:8px 10px;border-radius:10px;border:1px solid #d8dbe5;background:#fff;cursor:pointer;font-weight:700}
+
     .wrap{max-width:1100px;margin:18px auto;padding:0 12px}
     .card{background:#fff;border:1px solid #eceef5;border-radius:12px;padding:14px;margin:12px 0;box-shadow:0 4px 18px rgba(0,0,0,.05)}
     .row{display:grid;grid-template-columns: 1.2fr 170px 170px 190px 140px 140px;gap:10px;align-items:end}
     label{display:block;font-size:12px;color:#555;margin-bottom:5px}
     input,select{width:100%;padding:9px 10px;border:1px solid #d8dbe5;border-radius:10px;font-size:14px;background:#fff}
     .meta{font-size:13px;color:#333}
-    .actions{display:flex;gap:10px;margin-top:12px}
-    button{padding:9px 12px;border-radius:10px;border:1px solid #d8dbe5;background:#fff;cursor:pointer;font-weight:600}
-    button.primary{background:#111;color:#fff;border-color:#111}
     .topline{display:flex;gap:10px;align-items:center;justify-content:space-between;margin:8px 0 12px}
     .small{font-size:13px;color:#555}
     .warn{margin-top:10px;padding:10px;border-radius:10px;background:#fff8e6;border:1px solid #ffe1a3;color:#7a5200;font-size:13px}
     .err{margin-top:10px;padding:10px;border-radius:10px;background:#fff3f3;border:1px solid #ffd2d2;color:#8a0000;font-size:13px}
+    button{padding:9px 12px;border-radius:10px;border:1px solid #d8dbe5;background:#fff;cursor:pointer;font-weight:600}
+    button.primary{background:#111;color:#fff;border-color:#111}
   </style>
 </head>
 <body>
@@ -30,7 +32,10 @@
     <a href="reservations.html">Réservations</a>
     <a href="cles.html">Gestion des clés</a>
   </div>
-  <div class="small" id="who"></div>
+  <div class="right">
+    <div class="small" id="who"></div>
+    <button class="btn" id="logout">Déconnexion</button>
+  </div>
 </header>
 
 <div class="wrap">
@@ -47,9 +52,18 @@
 
 <script>
 const WORKER_BASE_URL = "https://pageadministration.cogechirolles.workers.dev";
+
+function logout(){
+  localStorage.removeItem("coge_admin_token");
+  localStorage.removeItem("coge_admin_name");
+  window.location.href = "login.html";
+}
+
 const token = localStorage.getItem("coge_admin_token");
 const adminName = localStorage.getItem("coge_admin_name") || "";
 document.getElementById("who").textContent = adminName ? `Connecté : ${adminName}` : "";
+document.getElementById("logout").addEventListener("click", logout);
+
 if (!token) window.location.href = "login.html";
 
 function esc(s){return String(s??"").replace(/[&<>"']/g,m=>({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[m]));}
@@ -64,16 +78,18 @@ async function api(path, opts={}){
       "content-type": "application/json"
     }
   });
-  const j = await r.json();
-  if (!j.ok) throw new Error(j.error || "Erreur API");
+
+  const j = await r.json().catch(()=>({ok:false,error:"Réponse API invalide"}));
+  if (!j.ok) {
+    if (r.status === 401) logout(); // token expiré/invalide
+    throw new Error(j.error || "Erreur API");
+  }
   return j;
 }
 
 let unavailableNames = [];
-let unavailableDetails = [];
 
 function renderKeyOptions(currentValue){
-  // options are hard-coded from your Airtable singleSelect choices (from your JSON)
   const all = [
     "Cavalaire N°1","Cavalaire N°2","Cavalaire N°3",
     "Serre-Chevalier N°1","Serre-Chevalier N°2","Serre-Chevalier N°3"
@@ -104,7 +120,6 @@ function renderCard(rec){
   const dateRemise = (field(f,"Date de remise")||"").slice(0,10);
   const dateRecup = (field(f,"Date de récupération")||"").slice(0,10);
 
-  // advisory if key is unavailable (should be current reservation)
   const warn = (jeu && unavailableNames.includes(jeu))
     ? `<div class="warn">🔒 Jeu de clés "${esc(jeu)}" actuellement sorti (normal si c’est ce séjour). Il restera indisponible tant que "Date de récupération" n’est pas remplie.</div>`
     : "";
@@ -168,7 +183,6 @@ async function load(){
     const j = await api("/api/cles/list", { method:"GET" });
     const recs = j.records || [];
     unavailableNames = (j.unavailableKeySets?.names) || [];
-    unavailableDetails = (j.unavailableKeySets?.details) || [];
     if (!recs.length) { list.innerHTML = "<div class='small'>Aucune réservation à gérer.</div>"; return; }
     list.innerHTML = recs.map(renderCard).join("");
     bind();
@@ -193,7 +207,7 @@ function bind(){
       const dateRecup = card.querySelector(".dateRecup").value;
 
       try{
-        const j = await api("/api/cles/update", {
+        await api("/api/cles/update", {
           method:"POST",
           body: JSON.stringify({
             recordId: id,
@@ -204,8 +218,6 @@ function bind(){
             dateRecup
           })
         });
-        // refresh availability + list
-        unavailableNames = (j.unavailableKeySets?.names) || unavailableNames;
         await load();
       }catch(e){
         errBox.style.display = "block";
