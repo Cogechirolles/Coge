@@ -12,7 +12,7 @@
     .right{display:flex;gap:10px;align-items:center}
     .btn{padding:8px 10px;border-radius:10px;border:1px solid #d8dbe5;background:#fff;cursor:pointer;font-weight:700}
     .wrap{max-width:1100px;margin:18px auto;padding:0 12px}
-    .card{background:#fff;border:1px solid #eceef5;border-radius:12px;padding:14px;margin:12px 0;box-shadow:0 4px 18px rgba(0,0,0,.05)}
+    .card{background:#fff;border:1px solid #eceef5;border-radius:12px;padding:14px;margin:12px 0;box-shadow:0 4px 18px rgba(0,0,0,.05);position:relative}
     .row{display:grid;grid-template-columns: 160px 160px 1fr 1fr 180px 160px;gap:10px;align-items:end}
     label{display:block;font-size:12px;color:#555;margin-bottom:5px}
     input{width:100%;padding:9px 10px;border:1px solid #d8dbe5;border-radius:10px;font-size:14px}
@@ -25,7 +25,26 @@
     button:disabled{opacity:.6;cursor:not-allowed}
     .topline{display:flex;gap:10px;align-items:center;justify-content:space-between;margin:8px 0 12px}
     .small{font-size:13px;color:#555}
-    .notice{margin:10px 0;padding:10px;border:1px solid #eceef5;background:#fff;border-radius:12px}
+
+    /* Debug panel visible à l’écran */
+    .debugPanel{
+      position:fixed; right:12px; bottom:12px;
+      width:min(520px, calc(100vw - 24px));
+      max-height:40vh; overflow:auto;
+      background:#0b0f1a; color:#e8eefc;
+      border:1px solid rgba(255,255,255,.12);
+      border-radius:14px;
+      padding:10px;
+      box-shadow:0 10px 30px rgba(0,0,0,.25);
+      z-index:999999;
+      font-size:12px;
+    }
+    .debugHead{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;gap:8px}
+    .debugTag{font-weight:800}
+    .debugBtn{border:1px solid rgba(255,255,255,.18);background:transparent;color:#e8eefc;border-radius:10px;padding:6px 8px;cursor:pointer}
+    .debugLine{white-space:pre-wrap;word-break:break-word;opacity:.95;padding:4px 0;border-bottom:1px dashed rgba(255,255,255,.08)}
+    .debugOk{color:#9dffb3}
+    .debugBad{color:#ffb3b3}
   </style>
 </head>
 <body>
@@ -44,17 +63,50 @@
   <div class="topline">
     <div>
       <div style="font-weight:700">Demandes en attente</div>
-      <div class="small">Table : <b>Réservations</b> • Statut : <b>En attente</b></div>
+      <div class="small">Table : <b>Réservations</b> • Statut : <b>En attente</b> • <span id="jsok" style="font-weight:800"></span></div>
     </div>
     <button id="reload" type="button">Rafraîchir</button>
   </div>
 
-  <div id="globalMsg" class="notice small" style="display:none"></div>
-
   <div id="list"></div>
 </div>
 
+<!-- Debug visible -->
+<div class="debugPanel" id="dbg">
+  <div class="debugHead">
+    <div class="debugTag">DEBUG</div>
+    <div style="display:flex;gap:8px;align-items:center">
+      <button class="debugBtn" id="dbgClear" type="button">Effacer</button>
+      <button class="debugBtn" id="dbgHide" type="button">Masquer</button>
+    </div>
+  </div>
+  <div id="dbgLines"></div>
+</div>
+
 <script>
+/* ========= DEBUG OUTILS ========= */
+function dbg(msg, cls=""){
+  const lines = document.getElementById("dbgLines");
+  const div = document.createElement("div");
+  div.className = "debugLine " + cls;
+  div.textContent = `[${new Date().toLocaleTimeString()}] ${msg}`;
+  lines.prepend(div);
+}
+document.getElementById("dbgClear").addEventListener("click", ()=>document.getElementById("dbgLines").innerHTML="");
+document.getElementById("dbgHide").addEventListener("click", ()=>{
+  const p = document.getElementById("dbg");
+  p.style.display = (p.style.display==="none") ? "block" : "none";
+});
+document.getElementById("jsok").textContent = "JS OK ✅";
+dbg("Script chargé (si tu vois ça, JS s’exécute).", "debugOk");
+
+/* Capture globale des clics : si rien ne s’affiche ici quand tu cliques, alors le JS ne tourne pas ou la page n’est pas celle-ci */
+document.addEventListener("pointerdown", (e)=>{
+  const t = e.target;
+  dbg(`pointerdown sur <${t.tagName.toLowerCase()}> id="${t.id||""}" class="${t.className||""}"`);
+}, true);
+
+/* ========= APP ========= */
 const WORKER_BASE_URL = "https://pageadministration.cogechirolles.workers.dev";
 
 function logout(){
@@ -68,28 +120,18 @@ const adminName = localStorage.getItem("coge_admin_name") || "";
 document.getElementById("who").textContent = adminName ? `Connecté : ${adminName}` : "";
 document.getElementById("logout").addEventListener("click", logout);
 
-if (!token) window.location.href = "login.html";
+if (!token) {
+  dbg("Pas de token -> redirection login.html", "debugBad");
+  window.location.href = "login.html";
+}
 
 function esc(s){return String(s??"").replace(/[&<>"']/g,m=>({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[m]));}
-
-function showGlobal(msg, ok=false){
-  const el = document.getElementById("globalMsg");
-  el.style.display = "block";
-  el.style.borderColor = ok ? "#c8f3cf" : "#ffd2d2";
-  el.style.background = ok ? "#f1fff3" : "#fff3f3";
-  el.style.color = ok ? "#0c5a1a" : "#8a0000";
-  el.textContent = msg;
-}
-
-function clearGlobal(){
-  const el = document.getElementById("globalMsg");
-  el.style.display = "none";
-  el.textContent = "";
-}
+function field(fields, name){ return fields?.[name]; }
 
 async function api(path, opts={}){
   const url = `${WORKER_BASE_URL}${path}`;
-  console.log("[API]", opts.method || "GET", url, opts.body ? JSON.parse(opts.body) : "");
+  dbg(`API ${opts.method||"GET"} ${url}`, "debugOk");
+
   const r = await fetch(url, {
     ...opts,
     headers: {
@@ -99,15 +141,13 @@ async function api(path, opts={}){
     }
   });
 
-  const j = await r.json().catch(()=>({ok:false,error:"Réponse API invalide"}));
+  const j = await r.json().catch(()=>({ok:false,error:"Réponse API invalide (pas du JSON)"}));
   if (!j.ok) {
-    if (r.status === 401) logout(); // token expiré -> retour login
+    if (r.status === 401) logout();
     throw new Error(j.error || `Erreur API (${r.status})`);
   }
   return j;
 }
-
-function field(fields, name){ return fields?.[name]; }
 
 function renderCard(item){
   const f = item.fields || {};
@@ -183,30 +223,22 @@ function setCardMsg(card, msg, ok=false){
   box.textContent = msg;
 }
 
-function clearCardMsg(card){
-  const box = card.querySelector(".cardMsg");
-  if (!box) return;
-  box.style.display = "none";
-  box.textContent = "";
-}
-
 async function load(){
   const list = document.getElementById("list");
-  clearGlobal();
   list.innerHTML = "Chargement…";
   try{
     const j = await api("/api/reservations/pending", { method:"GET" });
     const items = j.records || [];
     if (!items.length) { list.innerHTML = "<div class='small'>Aucune demande en attente.</div>"; return; }
     list.innerHTML = items.map(renderCard).join("");
+    dbg(`Rendu ${items.length} cartes.`, "debugOk");
   }catch(e){
     list.innerHTML = `<div class="conflict">Erreur : ${esc(e.message)}</div>`;
+    dbg(`LOAD erreur: ${e.message}`, "debugBad");
   }
 }
 
-/**
- * Event delegation : un seul listener pour tous les boutons (robuste après re-render)
- */
+/* Listener unique sur #list (delegation) */
 document.getElementById("list").addEventListener("click", async (e)=>{
   const btn = e.target.closest("button");
   if (!btn) return;
@@ -226,29 +258,26 @@ document.getElementById("list").addEventListener("click", async (e)=>{
 
   if (!action) return;
 
-  // feedback UI
-  clearCardMsg(card);
-  clearGlobal();
+  dbg(`CLICK action="${action}" recordId="${id}" dates=${dateDebut}->${dateFin}`, "debugOk");
 
   btn.disabled = true;
-  const prevText = btn.textContent;
-  btn.textContent = "⏳ Traitement…";
+  const prev = btn.textContent;
+  btn.textContent = "⏳";
 
   try{
     await api("/api/reservations/update", {
       method:"POST",
       body: JSON.stringify({ recordId:id, action, dateDebut, dateFin })
     });
-
-    showGlobal(action === "saveDates" ? "Dates enregistrées." : (action === "validate" ? "Réservation validée." : "Réservation refusée."), true);
+    setCardMsg(card, "✅ Action effectuée.", true);
+    dbg(`OK action "${action}"`, "debugOk");
     await load();
   }catch(err){
-    console.error("[ERREUR ACTION]", err);
-    setCardMsg(card, `Erreur : ${err.message}`, false);
-    showGlobal(`Erreur lors de l'action "${action}" : ${err.message}`, false);
+    setCardMsg(card, `❌ Erreur : ${err.message}`, false);
+    dbg(`ERREUR action "${action}": ${err.message}`, "debugBad");
   }finally{
     btn.disabled = false;
-    btn.textContent = prevText;
+    btn.textContent = prev;
   }
 });
 
