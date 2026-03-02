@@ -1,277 +1,208 @@
 <!doctype html>
 <html lang="fr">
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Administration - Réservations en attente</title>
-
-<style>
-body{
-  font-family:system-ui,Segoe UI,Roboto,Arial;
-  margin:0;
-  background:#f6f7fb;
-}
-
-header{
-  display:flex;
-  justify-content:space-between;
-  align-items:center;
-  padding:14px 18px;
-  background:#fff;
-  border-bottom:1px solid #eceef5;
-}
-
-header a{
-  font-weight:800;
-  text-decoration:none;
-  color:#111;
-  margin-right:15px;
-}
-
-.btn{
-  padding:8px 12px;
-  border-radius:10px;
-  border:1px solid #d8dbe5;
-  background:#fff;
-  font-weight:800;
-  cursor:pointer;
-}
-
-.btn.primary{
-  background:#1e88e5;
-  color:#fff;
-  border:none;
-}
-
-.btn.danger{
-  background:#c62828;
-  color:#fff;
-  border:none;
-}
-
-.wrap{
-  max-width:1100px;
-  margin:24px auto;
-  padding:0 16px;
-}
-
-.card{
-  background:#fff;
-  border:1px solid #eceef5;
-  border-radius:14px;
-  padding:18px;
-  margin-bottom:18px;
-}
-
-.meta{
-  font-size:14px;
-  margin-bottom:12px;
-  font-weight:600;
-}
-
-.row {
-  display: grid;
-  grid-template-columns: 1.2fr 170px 170px 170px;
-  gap: 14px;
-  margin-top: 12px;
-  align-items: end;
-}
-
-label{
-  font-size:12px;
-  color:#555;
-  margin-bottom:6px;
-  display:block;
-}
-
-input{
-  width:100%;
-  padding:10px;
-  border-radius:10px;
-  border:1px solid #d8dbe5;
-  min-height:42px;
-}
-
-.conflict{
-  margin-top:12px;
-  padding:10px;
-  border-radius:10px;
-  background:#fff3f3;
-  border:1px solid #ffd2d2;
-  color:#8a0000;
-  font-size:13px;
-}
-
-.err{
-  margin-top:10px;
-  color:#b00020;
-  font-size:13px;
-}
-
-@media (max-width:1000px){
-  .row{
-    grid-template-columns:1fr 1fr;
-  }
-}
-
-@media (max-width:640px){
-  .row{
-    grid-template-columns:1fr;
-  }
-}
-</style>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Administration - Réservations</title>
+  <style>
+    body{font-family:system-ui,Segoe UI,Roboto,Arial;margin:0;background:#f6f7fb}
+    header{display:flex;gap:10px;align-items:center;justify-content:space-between;padding:14px 16px;background:#fff;border-bottom:1px solid #eceef5}
+    header .left{display:flex;gap:10px;align-items:center}
+    header a{color:#111;text-decoration:none;font-weight:600}
+    .right{display:flex;gap:10px;align-items:center}
+    .btn{padding:8px 10px;border-radius:10px;border:1px solid #d8dbe5;background:#fff;cursor:pointer;font-weight:700}
+    .wrap{max-width:1100px;margin:18px auto;padding:0 12px}
+    .card{background:#fff;border:1px solid #eceef5;border-radius:12px;padding:14px;margin:12px 0;box-shadow:0 4px 18px rgba(0,0,0,.05)}
+    .row{display:grid;grid-template-columns: 160px 160px 1fr 1fr 180px 160px;gap:10px;align-items:end}
+    label{display:block;font-size:12px;color:#555;margin-bottom:5px}
+    input{width:100%;padding:9px 10px;border:1px solid #d8dbe5;border-radius:10px;font-size:14px}
+    .meta{font-size:13px;color:#333}
+    .conflict{margin-top:10px;padding:10px;border-radius:10px;background:#fff3f3;border:1px solid #ffd2d2;color:#8a0000;font-size:13px}
+    .actions{display:flex;gap:10px;margin-top:12px}
+    button{padding:9px 12px;border-radius:10px;border:1px solid #d8dbe5;background:#fff;cursor:pointer;font-weight:600}
+    button.primary{background:#111;color:#fff;border-color:#111}
+    .topline{display:flex;gap:10px;align-items:center;justify-content:space-between;margin:8px 0 12px}
+    .small{font-size:13px;color:#555}
+  </style>
 </head>
-
 <body>
-
 <header>
-  <div>
+  <div class="left">
     <a href="reservations.html">Réservations</a>
     <a href="cles.html">Gestion des clés</a>
   </div>
-  <div>
-    <span id="who" style="font-weight:700;color:#444;margin-right:10px"></span>
+  <div class="right">
+    <div class="small" id="who"></div>
     <button class="btn" id="logout">Déconnexion</button>
   </div>
 </header>
 
 <div class="wrap">
-  <h2>Demandes en attente</h2>
+  <div class="topline">
+    <div>
+      <div style="font-weight:700">Demandes en attente</div>
+      <div class="small">Table : <b>Réservations</b> • Statut : <b>En attente</b></div>
+    </div>
+    <button id="reload">Rafraîchir</button>
+  </div>
+
   <div id="list"></div>
 </div>
 
 <script>
 const WORKER_BASE_URL = "https://pageadministration.cogechirolles.workers.dev";
 
-const token = localStorage.getItem("coge_admin_token");
-const adminName = localStorage.getItem("coge_admin_name")||"";
-
-if(!token) window.location.href="login.html";
-document.getElementById("who").textContent = adminName ? `Connecté : ${adminName}` : "";
-
-document.getElementById("logout").onclick=()=>{
+function logout(){
   localStorage.removeItem("coge_admin_token");
   localStorage.removeItem("coge_admin_name");
-  window.location.href="login.html";
-};
-
-function esc(s){
-  return String(s??"").replace(/[&<>"']/g,m=>({
-    "&":"&amp;","<":"&lt;",">":"&gt;",
-    '"':"&quot;","'":"&#39;"
-  }[m]));
+  window.location.href = "login.html";
 }
 
-async function api(path,opts={}){
-  const r = await fetch(WORKER_BASE_URL+path,{
+const token = localStorage.getItem("coge_admin_token");
+const adminName = localStorage.getItem("coge_admin_name") || "";
+document.getElementById("who").textContent = adminName ? `Connecté : ${adminName}` : "";
+document.getElementById("logout").addEventListener("click", logout);
+
+if (!token) window.location.href = "login.html";
+
+function esc(s){return String(s??"").replace(/[&<>"']/g,m=>({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[m]));}
+
+async function api(path, opts={}){
+  const r = await fetch(`${WORKER_BASE_URL}${path}`, {
     ...opts,
-    headers:{
+    headers: {
       ...(opts.headers||{}),
-      "authorization":"Bearer "+token,
-      "content-type":"application/json"
+      "authorization": `Bearer ${token}`,
+      "content-type": "application/json"
     }
   });
-  const j = await r.json();
-  if(!j.ok){
-    if(r.status===401) window.location.href="login.html";
-    throw new Error(j.error||"Erreur API");
+  const j = await r.json().catch(()=>({ok:false,error:"Réponse API invalide"}));
+  if (!j.ok) {
+    if (r.status === 401) logout(); // token expiré -> retour login
+    throw new Error(j.error || "Erreur API");
   }
   return j;
 }
 
-function render(records){
-  const container=document.getElementById("list");
-  if(!records.length){
-    container.innerHTML="<p>Aucune demande en attente.</p>";
-    return;
-  }
+function field(fields, name){ return fields?.[name]; }
 
-  container.innerHTML=records.map(rec=>{
-    const f=rec.fields||{};
-    const conflicts=rec.conflicts||[];
+function renderCard(item){
+  const f = item.fields || {};
+  const recordId = item.recordId;
+  const dateDebut = (field(f,"Date de début")||"").slice(0,10);
+  const dateFin = (field(f,"Date de fin")||"").slice(0,10);
 
-    return `
-    <div class="card" data-id="${rec.recordId}">
+  const nomA = field(f,"Nom de l'abonné") || "";
+  const nomE = field(f,"Nom de l’Extérieur") || "";
+  const apt = Array.isArray(field(f,"Appartement")) ? field(f,"Appartement")[0] : (field(f,"Appartement")||"");
+  const prix = field(f,"Prix total");
+
+  const conflicts = item.conflicts || [];
+  const conflictHtml = conflicts.length ? `
+    <div class="conflict">
+      ⚠️ Conflit détecté (${conflicts.length}) sur <b>${esc(apt)}</b> :
+      <ul style="margin:8px 0 0 18px">
+        ${conflicts.map(c=>`<li>${esc(c.start)} → ${esc(c.end)}</li>`).join("")}
+      </ul>
+    </div>` : "";
+
+  return `
+  <div class="card" data-id="${esc(recordId)}">
+    <div class="row">
+      <div>
+        <label>Date de début</label>
+        <input type="date" class="dateDebut" value="${esc(dateDebut)}" />
+      </div>
+      <div>
+        <label>Date de fin</label>
+        <input type="date" class="dateFin" value="${esc(dateFin)}" />
+      </div>
+
       <div class="meta">
-        ${esc(f["Nom de l'abonné"]||"")}
-        ${f["Nom de l’Extérieur"]?` — ${esc(f["Nom de l’Extérieur"])}`:""}
-        • ${esc(Array.isArray(f["Appartement"])?f["Appartement"][0]:f["Appartement"]||"")}
+        <label>Abonné</label>
+        <div><b>${esc(nomA)}</b>${nomE?` — Extérieur : <b>${esc(nomE)}</b>`:""}</div>
       </div>
 
-      <div class="row">
-        <div>
-          <label>Date de début</label>
-          <input type="date" class="dateDebut" value="${esc((f["Date de début"]||"").slice(0,10))}">
-        </div>
-
-        <div>
-          <label>Date de fin</label>
-          <input type="date" class="dateFin" value="${esc((f["Date de fin"]||"").slice(0,10))}">
-        </div>
-
-        <div>
-          <button class="btn primary validate">Valider</button>
-        </div>
-
-        <div>
-          <button class="btn danger refuse">Refuser</button>
-        </div>
+      <div class="meta">
+        <label>Appartement</label>
+        <div><b>${esc(apt)}</b></div>
       </div>
 
-      ${conflicts.length ? `
-        <div class="conflict">
-          ⚠ Conflit avec un séjour validé :
-          ${conflicts.map(c=>`${c.start} → ${c.end}`).join(", ")}
-        </div>` : ""}
+      <div class="meta">
+        <label>Prix total</label>
+        <div><b>${(prix!==undefined && prix!==null)?esc(prix)+" €":"-"}</b></div>
+      </div>
 
-      <div class="err"></div>
-    </div>`;
-  }).join("");
+      <div class="meta">
+        <label>Actions</label>
+        <div class="actions" style="margin:0">
+          <button class="save">Enregistrer dates</button>
+        </div>
+      </div>
+    </div>
 
-  bind();
+    ${conflictHtml}
+
+    <div class="actions">
+      <button class="primary validate">✅ Valider</button>
+      <button class="refuse">❌ Refuser</button>
+    </div>
+  </div>`;
+}
+
+async function load(){
+  const list = document.getElementById("list");
+  list.innerHTML = "Chargement…";
+  try{
+    const j = await api("/api/reservations/pending", { method:"GET" });
+    const items = j.records || [];
+    if (!items.length) { list.innerHTML = "<div class='small'>Aucune demande en attente.</div>"; return; }
+    list.innerHTML = items.map(renderCard).join("");
+    bind();
+  }catch(e){
+    list.innerHTML = `<div class="conflict">Erreur : ${esc(e.message)}</div>`;
+  }
 }
 
 function bind(){
   document.querySelectorAll(".card").forEach(card=>{
-    const id=card.dataset.id;
+    const id = card.getAttribute("data-id");
+    const getDates = ()=>({
+      dateDebut: card.querySelector(".dateDebut").value,
+      dateFin: card.querySelector(".dateFin").value,
+    });
 
-    card.querySelector(".validate").onclick=async()=>{
-      await save(card,id,"validate");
-    };
+    card.querySelector(".save").addEventListener("click", async ()=>{
+      const {dateDebut, dateFin} = getDates();
+      await api("/api/reservations/update", {
+        method:"POST",
+        body: JSON.stringify({ recordId:id, action:"saveDates", dateDebut, dateFin })
+      });
+      await load();
+    });
 
-    card.querySelector(".refuse").onclick=async()=>{
-      await save(card,id,"refuse");
-    };
+    card.querySelector(".validate").addEventListener("click", async ()=>{
+      const {dateDebut, dateFin} = getDates();
+      await api("/api/reservations/update", {
+        method:"POST",
+        body: JSON.stringify({ recordId:id, action:"validate", dateDebut, dateFin })
+      });
+      await load();
+    });
+
+    card.querySelector(".refuse").addEventListener("click", async ()=>{
+      const {dateDebut, dateFin} = getDates();
+      await api("/api/reservations/update", {
+        method:"POST",
+        body: JSON.stringify({ recordId:id, action:"refuse", dateDebut, dateFin })
+      });
+      await load();
+    });
   });
 }
 
-async function save(card,id,action){
-  const dateDebut=card.querySelector(".dateDebut").value;
-  const dateFin=card.querySelector(".dateFin").value;
-
-  try{
-    await api("/api/reservations/update",{
-      method:"POST",
-      body:JSON.stringify({
-        recordId:id,
-        action,
-        dateDebut,
-        dateFin
-      })
-    });
-    load();
-  }catch(e){
-    card.querySelector(".err").textContent=e.message;
-  }
-}
-
-async function load(){
-  const j=await api("/api/reservations/pending",{method:"GET"});
-  render(j.records||[]);
-}
-
+document.getElementById("reload").addEventListener("click", load);
 load();
 </script>
-
 </body>
 </html>
