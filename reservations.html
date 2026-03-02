@@ -1,132 +1,40 @@
 <!doctype html>
 <html lang="fr">
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Administration - Réservations en attente</title>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Administration - Réservations en attente</title>
 
-<style>
-body{
-  font-family:system-ui,Segoe UI,Roboto,Arial;
-  margin:0;
-  background:#f6f7fb;
-}
+  <style>
+    body{font-family:system-ui,Segoe UI,Roboto,Arial;margin:0;background:#f6f7fb}
+    header{display:flex;justify-content:space-between;align-items:center;padding:14px 16px;background:#fff;border-bottom:1px solid #eceef5}
+    header a{font-weight:800;text-decoration:none;color:#111;margin-right:15px}
+    .btn{padding:8px 10px;border-radius:10px;border:1px solid #d8dbe5;background:#fff;font-weight:800;cursor:pointer}
+    .btn.ok{background:#1e88e5;color:#fff;border:none}
+    .btn.no{background:#c62828;color:#fff;border:none}
+    .wrap{max-width:1100px;margin:18px auto;padding:0 12px}
+    h2{margin:12px 0 18px}
 
-header{
-  display:flex;
-  justify-content:space-between;
-  align-items:center;
-  padding:14px 18px;
-  background:#fff;
-  border-bottom:1px solid #eceef5;
-}
+    .card{background:#fff;border:1px solid #eceef5;border-radius:12px;padding:14px;margin-bottom:12px}
+    .meta{font-size:13px;margin-bottom:10px;color:#222}
+    .meta strong{font-size:14px}
+    .line{display:flex;flex-wrap:wrap;gap:12px;align-items:end}
 
-header a{
-  font-weight:800;
-  text-decoration:none;
-  color:#111;
-  margin-right:15px;
-}
+    .field{min-width:220px}
+    .field.small{min-width:170px}
+    label{font-size:12px;color:#555;margin-bottom:5px;display:block}
+    input{width:100%;padding:9px;border-radius:10px;border:1px solid #d8dbe5;background:#fff}
 
-.btn{
-  padding:8px 12px;
-  border-radius:10px;
-  border:1px solid #d8dbe5;
-  background:#fff;
-  font-weight:800;
-  cursor:pointer;
-}
+    .actions{display:flex;gap:10px}
+    .conflict{margin-top:10px;padding:10px;border-radius:10px;background:#fff3f3;border:1px solid #ffd2d2;color:#8a0000;font-size:13px}
+    .err{margin-top:8px;color:#b00020;font-size:13px}
 
-.btn.primary{
-  background:#1e88e5;
-  color:#fff;
-  border:none;
-}
-
-.btn.danger{
-  background:#c62828;
-  color:#fff;
-  border:none;
-}
-
-.wrap{
-  max-width:1100px;
-  margin:24px auto;
-  padding:0 16px;
-}
-
-.card{
-  background:#fff;
-  border:1px solid #eceef5;
-  border-radius:14px;
-  padding:20px;
-  margin-bottom:22px;
-}
-
-.meta{
-  font-size:14px;
-  margin-bottom:14px;
-  font-weight:600;
-}
-
-.row{
-  display:grid;
-  grid-template-columns: 1.4fr repeat(2, minmax(160px, 1fr)) 220px;
-  gap:16px;
-  align-items:end;
-  margin-top:12px;
-}
-
-label{
-  font-size:12px;
-  color:#555;
-  margin-bottom:6px;
-  display:block;
-}
-
-input{
-  width:100%;
-  padding:10px;
-  border-radius:10px;
-  border:1px solid #d8dbe5;
-  min-height:42px;
-}
-
-.actions{
-  display:flex;
-  gap:10px;
-}
-
-.conflict{
-  margin-top:12px;
-  padding:10px;
-  border-radius:10px;
-  background:#fff3f3;
-  border:1px solid #ffd2d2;
-  color:#8a0000;
-  font-size:13px;
-}
-
-.err{
-  margin-top:10px;
-  color:#b00020;
-  font-size:13px;
-}
-
-/* Responsive tablette */
-@media (max-width:1000px){
-  .row{
-    grid-template-columns:1fr 1fr;
-  }
-}
-
-/* Responsive mobile */
-@media (max-width:640px){
-  .row{
-    grid-template-columns:1fr;
-  }
-}
-</style>
+    @media (max-width: 720px){
+      .field,.field.small{min-width:100%}
+      .actions{width:100%}
+      .actions .btn{flex:1}
+    }
+  </style>
 </head>
 
 <body>
@@ -151,127 +59,137 @@ input{
 const WORKER_BASE_URL = "https://pageadministration.cogechirolles.workers.dev";
 
 const token = localStorage.getItem("coge_admin_token");
-const adminName = localStorage.getItem("coge_admin_name")||"";
+const adminName = localStorage.getItem("coge_admin_name") || "";
 
 if(!token) window.location.href="login.html";
 document.getElementById("who").textContent = adminName ? `Connecté : ${adminName}` : "";
 
-document.getElementById("logout").onclick=()=>{
+document.getElementById("logout").addEventListener("click", () => {
   localStorage.removeItem("coge_admin_token");
   localStorage.removeItem("coge_admin_name");
   window.location.href="login.html";
-};
+});
 
 function esc(s){
-  return String(s??"").replace(/[&<>"']/g,m=>({
-    "&":"&amp;","<":"&lt;",">":"&gt;",
-    '"':"&quot;","'":"&#39;"
-  }[m]));
+  return String(s??"").replace(/[&<>"']/g,m=>({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[m]));
 }
 
-async function api(path,opts={}){
-  const r = await fetch(WORKER_BASE_URL+path,{
+async function api(path, opts={}){
+  const r = await fetch(WORKER_BASE_URL + path, {
     ...opts,
-    headers:{
+    headers: {
       ...(opts.headers||{}),
-      "authorization":"Bearer "+token,
-      "content-type":"application/json"
+      "authorization": "Bearer " + token,
+      "content-type": "application/json"
     }
   });
-  const j = await r.json();
+
+  const j = await r.json().catch(() => ({ ok:false, error:"Réponse API invalide" }));
+
   if(!j.ok){
-    if(r.status===401) window.location.href="login.html";
-    throw new Error(j.error||"Erreur API");
+    if(r.status === 401) window.location.href="login.html";
+    throw new Error(j.error || "Erreur API");
   }
   return j;
 }
 
+function valField(fields, name){
+  return fields ? fields[name] : undefined;
+}
+
+function normalizeApt(v){
+  if(Array.isArray(v)) return v[0] || "";
+  return v || "";
+}
+
 function render(records){
-  const container=document.getElementById("list");
-  if(!records.length){
-    container.innerHTML="<p>Aucune demande en attente.</p>";
+  const list = document.getElementById("list");
+
+  if(!records || !records.length){
+    list.innerHTML = `<div class="card"><div class="meta">Aucune demande en attente.</div></div>`;
     return;
   }
 
-  container.innerHTML=records.map(rec=>{
-    const f=rec.fields||{};
-    const conflicts=rec.conflicts||[];
+  list.innerHTML = records.map(rec => {
+    const f = rec.fields || {};
+    const id = rec.recordId || rec.id; // sécurité
+    const abon = valField(f, "Nom de l'abonné") || "";
+    const ext  = valField(f, "Nom de l’Extérieur") || "";
+    const apt  = normalizeApt(valField(f, "Appartement"));
+    const d1   = String(valField(f, "Date de début") || "").slice(0,10);
+    const d2   = String(valField(f, "Date de fin") || "").slice(0,10);
+    const prix = valField(f, "Prix total");
+
+    const conflicts = Array.isArray(rec.conflicts) ? rec.conflicts : [];
+    const conflictText = conflicts.length
+      ? conflicts.map(c => `${(c.start||"").slice(0,10)} → ${(c.end||"").slice(0,10)}`).join(" • ")
+      : "";
 
     return `
-    <div class="card" data-id="${rec.recordId}">
-      <div class="meta">
-        ${esc(f["Nom de l'abonné"]||"")}
-        ${f["Nom de l’Extérieur"]?` — ${esc(f["Nom de l’Extérieur"])}`:""}
-        • ${esc(Array.isArray(f["Appartement"])?f["Appartement"][0]:f["Appartement"]||"")}
+      <div class="card" data-id="${esc(id)}">
+        <div class="meta">
+          <strong>${esc(abon)}</strong>
+          ${ext ? ` — ${esc(ext)}` : ""}
+          • ${esc(apt)}
+          ${prix !== undefined && prix !== null && prix !== "" ? ` • Prix: <strong>${esc(prix)}€</strong>` : ""}
+        </div>
+
+        <div class="line">
+          <div class="field small">
+            <label>Date de début</label>
+            <input type="date" class="dateDebut" value="${esc(d1)}">
+          </div>
+
+          <div class="field small">
+            <label>Date de fin</label>
+            <input type="date" class="dateFin" value="${esc(d2)}">
+          </div>
+
+          <div class="actions">
+            <button class="btn ok validate">Valider</button>
+            <button class="btn no refuse">Refuser</button>
+          </div>
+        </div>
+
+        ${conflicts.length ? `<div class="conflict">⚠ Conflit avec un séjour validé : ${esc(conflictText)}</div>` : ""}
+
+        <div class="err"></div>
       </div>
-
-      <div class="row">
-        <div>
-          <label>Date de début</label>
-          <input type="date" class="dateDebut" value="${esc((f["Date de début"]||"").slice(0,10))}">
-        </div>
-
-        <div>
-          <label>Date de fin</label>
-          <input type="date" class="dateFin" value="${esc((f["Date de fin"]||"").slice(0,10))}">
-        </div>
-
-        <div class="actions">
-          <button class="btn primary validate">Valider</button>
-          <button class="btn danger refuse">Refuser</button>
-        </div>
-      </div>
-
-      ${conflicts.length ? `
-        <div class="conflict">
-          ⚠ Conflit avec un séjour validé :
-          ${conflicts.map(c=>`${c.start} → ${c.end}`).join(", ")}
-        </div>` : ""}
-
-      <div class="err"></div>
-    </div>`;
+    `;
   }).join("");
 
   bind();
 }
 
 function bind(){
-  document.querySelectorAll(".card").forEach(card=>{
-    const id=card.dataset.id;
+  document.querySelectorAll(".card").forEach(card => {
+    const id = card.dataset.id;
 
-    card.querySelector(".validate").onclick=async()=>{
-      await save(card,id,"validate");
-    };
-
-    card.querySelector(".refuse").onclick=async()=>{
-      await save(card,id,"refuse");
-    };
+    card.querySelector(".validate").addEventListener("click", () => save(card, id, "validate"));
+    card.querySelector(".refuse").addEventListener("click", () => save(card, id, "refuse"));
   });
 }
 
-async function save(card,id,action){
-  const dateDebut=card.querySelector(".dateDebut").value;
-  const dateFin=card.querySelector(".dateFin").value;
+async function save(card, id, action){
+  const dateDebut = card.querySelector(".dateDebut").value;
+  const dateFin   = card.querySelector(".dateFin").value;
+
+  card.querySelector(".err").textContent = "";
 
   try{
-    await api("/api/reservations/update",{
-      method:"POST",
-      body:JSON.stringify({
-        recordId:id,
-        action,
-        dateDebut,
-        dateFin
-      })
+    await api("/api/reservations/update", {
+      method: "POST",
+      body: JSON.stringify({ recordId: id, action, dateDebut, dateFin })
     });
-    load();
+    await load();
   }catch(e){
-    card.querySelector(".err").textContent=e.message;
+    card.querySelector(".err").textContent = e.message;
   }
 }
 
 async function load(){
-  const j=await api("/api/reservations/pending",{method:"GET"});
-  render(j.records||[]);
+  const j = await api("/api/reservations/pending", { method:"GET" });
+  render(j.records || []);
 }
 
 load();
