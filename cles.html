@@ -19,13 +19,17 @@
     .card.out{border-color:#ffd2d2}
     .row{display:grid;grid-template-columns:1.1fr 170px 170px 190px 140px 140px;gap:10px;align-items:end}
     label{font-size:12px;color:#555;margin-bottom:5px;display:block}
-    input,select{width:100%;padding:9px;border-radius:10px;border:1px solid #d8dbe5;background:#fff}
+    input,select,textarea{width:100%;padding:9px;border-radius:10px;border:1px solid #d8dbe5;background:#fff}
+    textarea{resize:vertical}
     .badge{padding:6px 10px;border-radius:999px;font-size:12px;font-weight:900;display:inline-block;margin-left:8px}
     .badge.red{background:#fff3f3;color:#8a0000;border:1px solid #ffd2d2}
     .badge.gray{background:#fafafa;color:#444;border:1px solid #e6e6e6}
     .meta{font-size:13px;margin-bottom:8px;color:#222}
     .warn{margin-top:10px;padding:10px;border-radius:10px;background:#fff8e6;border:1px solid #ffe1a3;color:#7a5200;font-size:13px}
     .err{margin-top:8px;color:#b00020;font-size:13px}
+
+    /* ✅ Commentaire : plus lisible et sur toute la largeur */
+    .rowComment{margin-top:10px}
   </style>
 </head>
 
@@ -183,6 +187,10 @@ function renderCard(rec,isOut){
   const dateRemise=(field(f,"Date de remise")||"").slice(0,10);
   const dateRecup=(field(f,"Date de récupération")||"").slice(0,10);
 
+  // ✅ Préremplissage commentaire admin (champ texte long Airtable)
+  const commentaireValue =
+    (f["Commentaires administrateurs"] ?? rec.commentairesAdministrateurs ?? "");
+
   const warnAptUnknown = (!aptKey)
     ? `<div class="warn">⚠️ Appartement non reconnu : <b>${esc(String(apt||""))}</b>. Aucun trousseau n’est proposé (sécurité). Vérifie le libellé dans Airtable.</div>`
     : "";
@@ -233,6 +241,12 @@ function renderCard(rec,isOut){
       </div>
     </div>
 
+    <!-- ✅ Commentaire admin (facultatif) -->
+    <div class="rowComment">
+      <label>Commentaire (facultatif)</label>
+      <textarea class="commentaire" rows="3" placeholder="Ex : correction du montant suite à…">${esc(commentaireValue)}</textarea>
+    </div>
+
     ${warnAptUnknown}
     <div class="err"></div>
   </div>`;
@@ -262,18 +276,29 @@ function bind(){
       const dateRemise=card.querySelector(".dateRemise").value;
       const dateRecup=card.querySelector(".dateRecup").value;
 
+      // ✅ commentaire facultatif
+      const commentaire = (card.querySelector(".commentaire")?.value || "").trim();
+
       try{
+        const body = {
+          recordId:id,
+          jeuDeCles:jeu,
+          paye,
+          montantPaye:montant,
+          dateRemise,
+          dateRecup
+        };
+
+        // facultatif : si vide, on n'envoie pas => n'écrase pas l'existant
+        if(commentaire !== ""){
+          body.commentairesAdministrateurs = commentaire;
+        }
+
         await api("/api/cles/update",{
           method:"POST",
-          body:JSON.stringify({
-            recordId:id,
-            jeuDeCles:jeu,
-            paye,
-            montantPaye:montant,
-            dateRemise,
-            dateRecup
-          })
+          body:JSON.stringify(body)
         });
+
         load();
       }catch(e){
         card.querySelector(".err").textContent=e.message;
