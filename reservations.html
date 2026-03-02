@@ -18,11 +18,14 @@
     input{width:100%;padding:9px 10px;border:1px solid #d8dbe5;border-radius:10px;font-size:14px}
     .meta{font-size:13px;color:#333}
     .conflict{margin-top:10px;padding:10px;border-radius:10px;background:#fff3f3;border:1px solid #ffd2d2;color:#8a0000;font-size:13px}
-    .actions{display:flex;gap:10px;margin-top:12px}
+    .okbox{margin-top:10px;padding:10px;border-radius:10px;background:#f1fff3;border:1px solid #c8f3cf;color:#0c5a1a;font-size:13px}
+    .actions{display:flex;gap:10px;margin-top:12px;flex-wrap:wrap}
     button{padding:9px 12px;border-radius:10px;border:1px solid #d8dbe5;background:#fff;cursor:pointer;font-weight:600}
     button.primary{background:#111;color:#fff;border-color:#111}
+    button:disabled{opacity:.6;cursor:not-allowed}
     .topline{display:flex;gap:10px;align-items:center;justify-content:space-between;margin:8px 0 12px}
     .small{font-size:13px;color:#555}
+    .notice{margin:10px 0;padding:10px;border:1px solid #eceef5;background:#fff;border-radius:12px}
   </style>
 </head>
 <body>
@@ -33,7 +36,7 @@
   </div>
   <div class="right">
     <div class="small" id="who"></div>
-    <button class="btn" id="logout">Déconnexion</button>
+    <button class="btn" id="logout" type="button">Déconnexion</button>
   </div>
 </header>
 
@@ -43,8 +46,10 @@
       <div style="font-weight:700">Demandes en attente</div>
       <div class="small">Table : <b>Réservations</b> • Statut : <b>En attente</b></div>
     </div>
-    <button id="reload">Rafraîchir</button>
+    <button id="reload" type="button">Rafraîchir</button>
   </div>
+
+  <div id="globalMsg" class="notice small" style="display:none"></div>
 
   <div id="list"></div>
 </div>
@@ -67,8 +72,25 @@ if (!token) window.location.href = "login.html";
 
 function esc(s){return String(s??"").replace(/[&<>"']/g,m=>({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[m]));}
 
+function showGlobal(msg, ok=false){
+  const el = document.getElementById("globalMsg");
+  el.style.display = "block";
+  el.style.borderColor = ok ? "#c8f3cf" : "#ffd2d2";
+  el.style.background = ok ? "#f1fff3" : "#fff3f3";
+  el.style.color = ok ? "#0c5a1a" : "#8a0000";
+  el.textContent = msg;
+}
+
+function clearGlobal(){
+  const el = document.getElementById("globalMsg");
+  el.style.display = "none";
+  el.textContent = "";
+}
+
 async function api(path, opts={}){
-  const r = await fetch(`${WORKER_BASE_URL}${path}`, {
+  const url = `${WORKER_BASE_URL}${path}`;
+  console.log("[API]", opts.method || "GET", url, opts.body ? JSON.parse(opts.body) : "");
+  const r = await fetch(url, {
     ...opts,
     headers: {
       ...(opts.headers||{}),
@@ -76,10 +98,11 @@ async function api(path, opts={}){
       "content-type": "application/json"
     }
   });
+
   const j = await r.json().catch(()=>({ok:false,error:"Réponse API invalide"}));
   if (!j.ok) {
     if (r.status === 401) logout(); // token expiré -> retour login
-    throw new Error(j.error || "Erreur API");
+    throw new Error(j.error || `Erreur API (${r.status})`);
   }
   return j;
 }
@@ -134,72 +157,100 @@ function renderCard(item){
       </div>
 
       <div class="meta">
-        <label>Actions</label>
+        <label>Actions dates</label>
         <div class="actions" style="margin:0">
-          <button class="save">Enregistrer dates</button>
+          <button class="save" type="button">Enregistrer dates</button>
         </div>
       </div>
     </div>
 
+    <div class="cardMsg" style="display:none"></div>
+
     ${conflictHtml}
 
     <div class="actions">
-      <button class="primary validate">✅ Valider</button>
-      <button class="refuse">❌ Refuser</button>
+      <button class="primary validate" type="button">✅ Valider</button>
+      <button class="refuse" type="button">❌ Refuser</button>
     </div>
   </div>`;
 }
 
+function setCardMsg(card, msg, ok=false){
+  const box = card.querySelector(".cardMsg");
+  if (!box) return;
+  box.style.display = "block";
+  box.className = ok ? "okbox cardMsg" : "conflict cardMsg";
+  box.textContent = msg;
+}
+
+function clearCardMsg(card){
+  const box = card.querySelector(".cardMsg");
+  if (!box) return;
+  box.style.display = "none";
+  box.textContent = "";
+}
+
 async function load(){
   const list = document.getElementById("list");
+  clearGlobal();
   list.innerHTML = "Chargement…";
   try{
     const j = await api("/api/reservations/pending", { method:"GET" });
     const items = j.records || [];
     if (!items.length) { list.innerHTML = "<div class='small'>Aucune demande en attente.</div>"; return; }
     list.innerHTML = items.map(renderCard).join("");
-    bind();
   }catch(e){
     list.innerHTML = `<div class="conflict">Erreur : ${esc(e.message)}</div>`;
   }
 }
 
-function bind(){
-  document.querySelectorAll(".card").forEach(card=>{
-    const id = card.getAttribute("data-id");
-    const getDates = ()=>({
-      dateDebut: card.querySelector(".dateDebut").value,
-      dateFin: card.querySelector(".dateFin").value,
+/**
+ * Event delegation : un seul listener pour tous les boutons (robuste après re-render)
+ */
+document.getElementById("list").addEventListener("click", async (e)=>{
+  const btn = e.target.closest("button");
+  if (!btn) return;
+
+  const card = e.target.closest(".card");
+  if (!card) return;
+
+  const id = card.getAttribute("data-id");
+  const dateDebut = card.querySelector(".dateDebut")?.value || "";
+  const dateFin = card.querySelector(".dateFin")?.value || "";
+
+  const action =
+    btn.classList.contains("save") ? "saveDates" :
+    btn.classList.contains("validate") ? "validate" :
+    btn.classList.contains("refuse") ? "refuse" :
+    null;
+
+  if (!action) return;
+
+  // feedback UI
+  clearCardMsg(card);
+  clearGlobal();
+
+  btn.disabled = true;
+  const prevText = btn.textContent;
+  btn.textContent = "⏳ Traitement…";
+
+  try{
+    await api("/api/reservations/update", {
+      method:"POST",
+      body: JSON.stringify({ recordId:id, action, dateDebut, dateFin })
     });
 
-    card.querySelector(".save").addEventListener("click", async ()=>{
-      const {dateDebut, dateFin} = getDates();
-      await api("/api/reservations/update", {
-        method:"POST",
-        body: JSON.stringify({ recordId:id, action:"saveDates", dateDebut, dateFin })
-      });
-      await load();
-    });
-
-    card.querySelector(".validate").addEventListener("click", async ()=>{
-      const {dateDebut, dateFin} = getDates();
-      await api("/api/reservations/update", {
-        method:"POST",
-        body: JSON.stringify({ recordId:id, action:"validate", dateDebut, dateFin })
-      });
-      await load();
-    });
-
-    card.querySelector(".refuse").addEventListener("click", async ()=>{
-      const {dateDebut, dateFin} = getDates();
-      await api("/api/reservations/update", {
-        method:"POST",
-        body: JSON.stringify({ recordId:id, action:"refuse", dateDebut, dateFin })
-      });
-      await load();
-    });
-  });
-}
+    showGlobal(action === "saveDates" ? "Dates enregistrées." : (action === "validate" ? "Réservation validée." : "Réservation refusée."), true);
+    await load();
+  }catch(err){
+    console.error("[ERREUR ACTION]", err);
+    setCardMsg(card, `Erreur : ${err.message}`, false);
+    showGlobal(`Erreur lors de l'action "${action}" : ${err.message}`, false);
+  }finally{
+    btn.disabled = false;
+    btn.textContent = prevText;
+  }
+});
 
 document.getElementById("reload").addEventListener("click", load);
 load();
