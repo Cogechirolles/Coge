@@ -4,20 +4,17 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Administration - Gestion des clés</title>
-
   <style>
     body{font-family:system-ui,Segoe UI,Roboto,Arial;margin:0;background:#f6f7fb}
     header{display:flex;justify-content:space-between;align-items:center;padding:14px 16px;background:#fff;border-bottom:1px solid #eceef5}
-    header a{font-weight:800;text-decoration:none;color:#111;margin-right:15px}
-    .btn{padding:8px 10px;border-radius:10px;border:1px solid #d8dbe5;background:#fff;font-weight:800;cursor:pointer}
+    header a{color:#111;text-decoration:none;font-weight:700;margin-right:12px}
+    .btn{padding:8px 10px;border-radius:10px;border:1px solid #d8dbe5;background:#fff;cursor:pointer;font-weight:700}
     .wrap{max-width:1100px;margin:18px auto;padding:0 12px}
-    .sectionTitle{display:flex;justify-content:space-between;align-items:center;margin:20px 0 10px}
-    .pill{padding:6px 10px;border-radius:999px;font-size:13px;font-weight:900}
-    .pill.red{background:#fff3f3;color:#8a0000;border:1px solid #ffd2d2}
-    .pill.gray{background:#fafafa;color:#444;border:1px solid #e6e6e6}
-    .card{background:#fff;border:1px solid #eceef5;border-radius:12px;padding:14px;margin-bottom:12px}
-    .card.out{border-color:#ffd2d2}
-    .row{display:grid;grid-template-columns:1.1fr 170px 170px 190px 140px 140px;gap:10px;align-items:end}
+    .sectionTitle{display:flex;justify-content:space-between;align-items:center;margin:18px 0 10px}
+    .pill{display:inline-block;padding:6px 10px;border-radius:999px;background:#fff;border:1px solid #e2e6f0;font-size:12px;font-weight:800}
+    .card{background:#fff;border:1px solid #eceef5;border-radius:12px;padding:14px;margin:12px 0;box-shadow:0 4px 18px rgba(0,0,0,.05)}
+    .card.out{border-left:4px solid #d65}
+    .row{display:grid;grid-template-columns: 1.2fr 160px 160px 140px 140px 140px;gap:10px;align-items:end}
     label{font-size:12px;color:#555;margin-bottom:5px;display:block}
     input,select,textarea{width:100%;padding:9px;border-radius:10px;border:1px solid #d8dbe5;background:#fff}
     textarea{resize:vertical}
@@ -27,8 +24,7 @@
     .meta{font-size:13px;margin-bottom:8px;color:#222}
     .warn{margin-top:10px;padding:10px;border-radius:10px;background:#fff8e6;border:1px solid #ffe1a3;color:#7a5200;font-size:13px}
     .err{margin-top:8px;color:#b00020;font-size:13px}
-
-    /* ✅ Commentaire : plus lisible et sur toute la largeur */
+    .ok{margin-top:8px;color:#0c5a1a;font-size:13px}
     .rowComment{margin-top:10px}
   </style>
 </head>
@@ -96,7 +92,6 @@ async function api(path,opts={}){
 let unavailableNames=[];
 let allRecords=[];
 
-// --- Catalogue clé par appartement
 const KEYSETS = {
   cavalaire: ["Cavalaire N°1","Cavalaire N°2","Cavalaire N°3"],
   serre: ["Serre-Chevalier N°1","Serre-Chevalier N°2","Serre-Chevalier N°3"]
@@ -123,11 +118,8 @@ function getAptKey(aptField){
 
 function renderKeyOptions(currentValue, aptKey){
   const allowed = KEYSETS[aptKey] || [];
-
-  // si appartement inconnu => pas de trousseaux proposés (sauf valeur existante)
   let choices = [...allowed];
 
-  // on enlève les indisponibles (non rendus), sauf si c’est la valeur actuelle
   choices = choices.filter(name => {
     const isUnavailable = unavailableNames.includes(name);
     const isCurrent = currentValue === name;
@@ -161,15 +153,11 @@ function splitRecords(records){
   return {out,toGive:toGive.filter(r=>!outIds.has(r.id))};
 }
 
-// --- Utilitaire : valeur préremplie pour Montant payé
 function montantPrefill(fields){
   const mp = fields?.["Montant payé"];
   const pt = fields?.["Prix total"];
 
-  // Si Montant payé existe (même 0), on le garde
   if (mp !== undefined && mp !== null && String(mp).trim() !== "") return String(mp);
-
-  // Sinon on met Prix total si dispo
   if (pt !== undefined && pt !== null && String(pt).trim() !== "") return String(pt);
 
   return "";
@@ -183,11 +171,10 @@ function renderCard(rec,isOut){
 
   const jeu=field(f,"Jeu de clés")||"";
   const paye=field(f,"Payé ?")||"";
-  const montantValue = montantPrefill(f); // ✅ prérempli avec Prix total si Montant payé vide
+  const montantValue = montantPrefill(f);
   const dateRemise=(field(f,"Date de remise")||"").slice(0,10);
   const dateRecup=(field(f,"Date de récupération")||"").slice(0,10);
 
-  // ✅ Préremplissage commentaire admin (champ texte long Airtable)
   const commentaireValue =
     (f["Commentaires administrateurs"] ?? rec.commentairesAdministrateurs ?? "");
 
@@ -241,15 +228,54 @@ function renderCard(rec,isOut){
       </div>
     </div>
 
-    <!-- ✅ Commentaire admin (facultatif) -->
     <div class="rowComment">
       <label>Commentaire (facultatif)</label>
       <textarea class="commentaire" rows="3" placeholder="Ex : correction du montant suite à…">${esc(commentaireValue)}</textarea>
     </div>
 
     ${warnAptUnknown}
+    <div class="ok"></div>
     <div class="err"></div>
   </div>`;
+}
+
+function recomputeUnavailableNames(records){
+  const set = new Set();
+
+  for(const rec of records){
+    const f = rec.fields || {};
+    const statut = f["Statut de la demande"];
+    const jeu = f["Jeu de clés"];
+    const dateRemise = (f["Date de remise"] || "").slice(0,10);
+    const dateRecup = (f["Date de récupération"] || "").slice(0,10);
+
+    if(statut === "Validée" && jeu && dateRemise && !dateRecup){
+      set.add(jeu);
+    }
+  }
+
+  unavailableNames = Array.from(set);
+}
+
+function updateLocalRecord(recordId, patch){
+  const rec = allRecords.find(r => r.id === recordId);
+  if (!rec) return;
+
+  rec.fields = rec.fields || {};
+
+  if ("jeuDeCles" in patch) rec.fields["Jeu de clés"] = patch.jeuDeCles || "";
+  if ("paye" in patch) rec.fields["Payé ?"] = patch.paye || "";
+  if ("montantPaye" in patch) {
+    rec.fields["Montant payé"] = patch.montantPaye === "" ? null : Number(String(patch.montantPaye).replace(",", "."));
+  }
+  if ("dateRemise" in patch) rec.fields["Date de remise"] = patch.dateRemise || "";
+  if ("dateRecup" in patch) rec.fields["Date de récupération"] = patch.dateRecup || "";
+  if ("commentairesAdministrateurs" in patch) {
+    rec.fields["Commentaires administrateurs"] = patch.commentairesAdministrateurs || "";
+    rec.commentairesAdministrateurs = patch.commentairesAdministrateurs || "";
+  }
+
+  recomputeUnavailableNames(allRecords);
 }
 
 function render(){
@@ -268,40 +294,43 @@ function render(){
 
 function bind(){
   document.querySelectorAll(".card").forEach(card=>{
-    card.querySelector(".save").onclick=async()=>{
-      const id=card.dataset.id;
-      const jeu=card.querySelector(".jeu").value;
-      const paye=card.querySelector(".paye").value;
-      const montant=card.querySelector(".montant").value;
-      const dateRemise=card.querySelector(".dateRemise").value;
-      const dateRecup=card.querySelector(".dateRecup").value;
-
-      // ✅ commentaire facultatif
+    card.querySelector(".save").onclick = async () => {
+      const id = card.dataset.id;
+      const jeu = card.querySelector(".jeu").value;
+      const paye = card.querySelector(".paye").value;
+      const montant = card.querySelector(".montant").value;
+      const dateRemise = card.querySelector(".dateRemise").value;
+      const dateRecup = card.querySelector(".dateRecup").value;
       const commentaire = (card.querySelector(".commentaire")?.value || "").trim();
+
+      const errBox = card.querySelector(".err");
+      const okBox = card.querySelector(".ok");
+      errBox.textContent = "";
+      okBox.textContent = "";
 
       try{
         const body = {
-          recordId:id,
-          jeuDeCles:jeu,
+          recordId: id,
+          jeuDeCles: jeu,
           paye,
-          montantPaye:montant,
+          montantPaye: montant,
           dateRemise,
           dateRecup
         };
 
-        // facultatif : si vide, on n'envoie pas => n'écrase pas l'existant
-        if(commentaire !== ""){
+        if (commentaire !== "") {
           body.commentairesAdministrateurs = commentaire;
         }
 
-        await api("/api/cles/update",{
-          method:"POST",
-          body:JSON.stringify(body)
+        await api("/api/cles/update", {
+          method: "POST",
+          body: JSON.stringify(body)
         });
 
-        load();
+        updateLocalRecord(id, body);
+        render();
       }catch(e){
-        card.querySelector(".err").textContent=e.message;
+        errBox.textContent = e.message;
       }
     };
   });
