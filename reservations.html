@@ -26,7 +26,6 @@
     .topline{display:flex;gap:10px;align-items:center;justify-content:space-between;margin:8px 0 12px}
     .small{font-size:13px;color:#555}
 
-    /* Debug panel visible à l’écran */
     .debugPanel{
       position:fixed; right:12px; bottom:12px;
       width:min(520px, calc(100vw - 24px));
@@ -71,7 +70,6 @@
   <div id="list"></div>
 </div>
 
-<!-- Debug visible -->
 <div class="debugPanel" id="dbg">
   <div class="debugHead">
     <div class="debugTag">DEBUG</div>
@@ -84,7 +82,6 @@
 </div>
 
 <script>
-/* ========= DEBUG OUTILS ========= */
 function dbg(msg, cls=""){
   const lines = document.getElementById("dbgLines");
   const div = document.createElement("div");
@@ -100,13 +97,11 @@ document.getElementById("dbgHide").addEventListener("click", ()=>{
 document.getElementById("jsok").textContent = "JS OK ✅";
 dbg("Script chargé (si tu vois ça, JS s’exécute).", "debugOk");
 
-/* Capture globale des clics : si rien ne s’affiche ici quand tu cliques, alors le JS ne tourne pas ou la page n’est pas celle-ci */
 document.addEventListener("pointerdown", (e)=>{
   const t = e.target;
   dbg(`pointerdown sur <${t.tagName.toLowerCase()}> id="${t.id||""}" class="${t.className||""}"`);
 }, true);
 
-/* ========= APP ========= */
 const WORKER_BASE_URL = "https://pageadministration.cogechirolles.workers.dev";
 
 function logout(){
@@ -229,7 +224,10 @@ async function load(){
   try{
     const j = await api("/api/reservations/pending", { method:"GET" });
     const items = j.records || [];
-    if (!items.length) { list.innerHTML = "<div class='small'>Aucune demande en attente.</div>"; return; }
+    if (!items.length) {
+      list.innerHTML = "<div class='small'>Aucune demande en attente.</div>";
+      return;
+    }
     list.innerHTML = items.map(renderCard).join("");
     dbg(`Rendu ${items.length} cartes.`, "debugOk");
   }catch(e){
@@ -238,7 +236,6 @@ async function load(){
   }
 }
 
-/* Listener unique sur #list (delegation) */
 document.getElementById("list").addEventListener("click", async (e)=>{
   const btn = e.target.closest("button");
   if (!btn) return;
@@ -269,9 +266,21 @@ document.getElementById("list").addEventListener("click", async (e)=>{
       method:"POST",
       body: JSON.stringify({ recordId:id, action, dateDebut, dateFin })
     });
-    setCardMsg(card, "✅ Action effectuée.", true);
-    dbg(`OK action "${action}"`, "debugOk");
-    await load();
+
+    if (action === "saveDates") {
+      setCardMsg(card, "✅ Dates enregistrées.", true);
+      dbg(`OK action "${action}" sans rechargement`, "debugOk");
+    } else {
+      setCardMsg(card, "✅ Action effectuée.", true);
+      dbg(`OK action "${action}" -> suppression locale de la carte`, "debugOk");
+
+      card.remove();
+
+      const list = document.getElementById("list");
+      if (!list.querySelector(".card")) {
+        list.innerHTML = "<div class='small'>Aucune demande en attente.</div>";
+      }
+    }
   }catch(err){
     setCardMsg(card, `❌ Erreur : ${err.message}`, false);
     dbg(`ERREUR action "${action}": ${err.message}`, "debugBad");
