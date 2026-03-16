@@ -1,0 +1,591 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Administration - Pointage bancaire</title>
+  <style>
+    :root{
+      --bg:#f6f7fb;
+      --card:#ffffff;
+      --text:#111827;
+      --muted:#6b7280;
+      --line:#e5e7eb;
+      --line2:#d8dbe5;
+      --primary:#111827;
+      --primary-hover:#000000;
+      --success-bg:#eaf8ef;
+      --success-bd:#b7e4c7;
+      --success-tx:#0f6b35;
+      --warn-bg:#fff7db;
+      --warn-bd:#f4dc8b;
+      --warn-tx:#8a6500;
+      --error-bg:#fff1f2;
+      --error-bd:#fecdd3;
+      --error-tx:#b42318;
+      --shadow:0 2px 10px rgba(0,0,0,.04);
+      --radius:16px;
+    }
+
+    *{box-sizing:border-box}
+
+    body{
+      margin:0;
+      font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;
+      background:var(--bg);
+      color:var(--text);
+    }
+
+    header{
+      position:sticky;
+      top:0;
+      z-index:20;
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:12px;
+      padding:14px 16px;
+      background:#fff;
+      border-bottom:1px solid #eceef5;
+    }
+
+    .header-left,
+    .header-right{
+      display:flex;
+      align-items:center;
+      gap:10px;
+      flex-wrap:wrap;
+    }
+
+    .back-link{
+      color:#111;
+      text-decoration:none;
+      font-weight:700;
+    }
+
+    .header-title{
+      font-weight:800;
+      font-size:18px;
+    }
+
+    .wrap{
+      max-width:1200px;
+      margin:18px auto 32px;
+      padding:0 12px;
+    }
+
+    .panel{
+      background:var(--card);
+      border:1px solid var(--line);
+      border-radius:var(--radius);
+      padding:18px;
+      box-shadow:var(--shadow);
+    }
+
+    .panel h1{
+      margin:0 0 6px 0;
+      font-size:24px;
+      line-height:1.2;
+    }
+
+    .muted{
+      color:var(--muted);
+      font-size:14px;
+      line-height:1.5;
+    }
+
+    .toolbar{
+      margin-top:14px;
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+      align-items:center;
+    }
+
+    .btn{
+      appearance:none;
+      border:1px solid var(--line2);
+      background:#fff;
+      color:#111;
+      border-radius:12px;
+      padding:10px 14px;
+      cursor:pointer;
+      font-weight:700;
+      font-size:14px;
+    }
+
+    .btn:hover{
+      background:#f3f4f6;
+    }
+
+    .btn-primary{
+      background:var(--primary);
+      color:#fff;
+      border-color:var(--primary);
+    }
+
+    .btn-primary:hover{
+      background:var(--primary-hover);
+    }
+
+    .btn[disabled]{
+      opacity:.6;
+      cursor:not-allowed;
+    }
+
+    .msg{
+      margin-top:14px;
+      padding:12px 14px;
+      border-radius:12px;
+      border:1px solid transparent;
+      font-size:14px;
+      line-height:1.45;
+      white-space:pre-wrap;
+    }
+
+    .msg-success{
+      background:var(--success-bg);
+      border-color:var(--success-bd);
+      color:var(--success-tx);
+    }
+
+    .msg-error{
+      background:var(--error-bg);
+      border-color:var(--error-bd);
+      color:var(--error-tx);
+    }
+
+    .summary{
+      margin-top:16px;
+      display:grid;
+      grid-template-columns:repeat(4, minmax(160px, 1fr));
+      gap:12px;
+    }
+
+    .summary-card{
+      background:#f8fafc;
+      border:1px solid #edf0f6;
+      border-radius:14px;
+      padding:12px 14px;
+    }
+
+    .summary-label{
+      font-size:12px;
+      color:var(--muted);
+      margin-bottom:6px;
+    }
+
+    .summary-value{
+      font-size:20px;
+      font-weight:800;
+    }
+
+    .list{
+      margin-top:18px;
+      display:grid;
+      gap:14px;
+    }
+
+    .card{
+      background:var(--card);
+      border:1px solid var(--line);
+      border-radius:var(--radius);
+      padding:16px;
+      box-shadow:var(--shadow);
+    }
+
+    .card-top{
+      display:flex;
+      justify-content:space-between;
+      gap:12px;
+      align-items:flex-start;
+      margin-bottom:14px;
+      flex-wrap:wrap;
+    }
+
+    .card-title{
+      font-size:18px;
+      font-weight:800;
+      line-height:1.3;
+      margin:0;
+    }
+
+    .card-subtitle{
+      margin-top:4px;
+      color:var(--muted);
+      font-size:14px;
+    }
+
+    .badge{
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      min-height:32px;
+      padding:6px 12px;
+      border-radius:999px;
+      font-size:12px;
+      font-weight:800;
+      border:1px solid var(--warn-bd);
+      background:var(--warn-bg);
+      color:var(--warn-tx);
+      white-space:nowrap;
+    }
+
+    .grid{
+      display:grid;
+      grid-template-columns:repeat(4, minmax(170px, 1fr));
+      gap:12px;
+    }
+
+    .field{
+      background:#f8fafc;
+      border:1px solid #edf0f6;
+      border-radius:14px;
+      padding:12px 14px;
+      min-height:72px;
+    }
+
+    .field-label{
+      display:block;
+      margin-bottom:6px;
+      font-size:12px;
+      color:var(--muted);
+    }
+
+    .field-value{
+      font-weight:800;
+      line-height:1.35;
+      word-break:break-word;
+    }
+
+    .actions{
+      margin-top:14px;
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+      align-items:center;
+    }
+
+    .empty{
+      margin-top:18px;
+      background:#fff;
+      border:1px dashed var(--line2);
+      border-radius:var(--radius);
+      padding:30px 18px;
+      text-align:center;
+      color:var(--muted);
+      box-shadow:var(--shadow);
+    }
+
+    .footer-note{
+      margin-top:14px;
+      font-size:13px;
+      color:var(--muted);
+    }
+
+    @media (max-width: 1024px){
+      .summary{ grid-template-columns:repeat(2, minmax(160px, 1fr)); }
+      .grid{ grid-template-columns:repeat(2, minmax(150px, 1fr)); }
+    }
+
+    @media (max-width: 640px){
+      header{
+        align-items:flex-start;
+      }
+
+      .summary{ grid-template-columns:1fr; }
+      .grid{ grid-template-columns:1fr; }
+
+      .panel h1{
+        font-size:21px;
+      }
+
+      .card-title{
+        font-size:17px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="header-left">
+      <a class="back-link" href="./index.html">← Administration</a>
+      <div class="header-title">Pointage bancaire</div>
+    </div>
+
+    <div class="header-right">
+      <button class="btn" id="reloadBtn">Actualiser</button>
+      <button class="btn" id="logoutBtn">Déconnexion</button>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <section class="panel">
+      <h1>Pointage bancaire</h1>
+      <div class="muted">
+        Cette page affiche les réservations validées avec un montant payé renseigné, tant qu’elles ne sont pas encore pointées.
+      </div>
+
+      <div class="toolbar">
+        <button class="btn btn-primary" id="reloadBtn2">Rafraîchir la liste</button>
+      </div>
+
+      <div id="messageBox"></div>
+
+      <div class="summary" id="summary" style="display:none;">
+        <div class="summary-card">
+          <div class="summary-label">Opérations à pointer</div>
+          <div class="summary-value" id="sumCount">0</div>
+        </div>
+        <div class="summary-card">
+          <div class="summary-label">Montant total</div>
+          <div class="summary-value" id="sumAmount">0 €</div>
+        </div>
+        <div class="summary-card">
+          <div class="summary-label">Total des nuits</div>
+          <div class="summary-value" id="sumNights">0</div>
+        </div>
+        <div class="summary-card">
+          <div class="summary-label">Statut</div>
+          <div class="summary-value">À pointer</div>
+        </div>
+      </div>
+
+      <div class="footer-note">
+        Les opérations disparaissent de cette liste dès qu’elles sont marquées comme pointées.
+      </div>
+    </section>
+
+    <section id="list" class="list"></section>
+
+    <section id="emptyState" class="empty" style="display:none;">
+      Aucune opération à pointer.
+    </section>
+  </main>
+
+  <script>
+    const API_BASE = "pageadministration.cogechirolles.workers.dev";
+    const TOKEN_KEY = "coge_token";
+
+    function getToken() {
+      return localStorage.getItem(TOKEN_KEY) || "";
+    }
+
+    function setMessage(text, type = "") {
+      const box = document.getElementById("messageBox");
+      if (!text) {
+        box.innerHTML = "";
+        return;
+      }
+
+      const css = type === "success" ? "msg msg-success" : "msg msg-error";
+      box.innerHTML = `<div class="${css}">${escapeHtml(text)}</div>`;
+    }
+
+    function escapeHtml(value) {
+      return String(value ?? "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+    }
+
+    function formatDate(value) {
+      if (!value) return "";
+      const d = new Date(value);
+      if (Number.isNaN(d.getTime())) return value;
+      return d.toLocaleDateString("fr-FR");
+    }
+
+    function formatMoney(value) {
+      if (value === "" || value === null || value === undefined) return "";
+      const n = Number(value);
+      if (!Number.isFinite(n)) return String(value);
+      return n.toLocaleString("fr-FR", { style: "currency", currency: "EUR" });
+    }
+
+    async function api(path, options = {}) {
+      const token = getToken();
+      if (!token) {
+        window.location.href = "./index.html";
+        throw new Error("Session absente");
+      }
+
+      const res = await fetch(API_BASE + path, {
+        ...options,
+        headers: {
+          "Authorization": `Bearer ${token}`,
+          ...(options.headers || {})
+        }
+      });
+
+      const data = await res.json().catch(() => ({}));
+
+      if (res.status === 401) {
+        localStorage.removeItem(TOKEN_KEY);
+        window.location.href = "./index.html";
+        throw new Error("Session expirée");
+      }
+
+      if (!res.ok || data.ok === false) {
+        throw new Error(data.error || "Erreur API");
+      }
+
+      return data;
+    }
+
+    function buildCard(record) {
+      const p = record?.pointage || {};
+      const title = p.nomAbonne || "Abonné non renseigné";
+      const subtitle = `${p.appartement || "Appartement non renseigné"}${p.dateDebut ? " • Arrivée " + formatDate(p.dateDebut) : ""}${p.dateFin ? " • Départ " + formatDate(p.dateFin) : ""}`;
+
+      return `
+        <article class="card" data-record-id="${escapeHtml(record.recordId)}">
+          <div class="card-top">
+            <div>
+              <h2 class="card-title">${escapeHtml(title)}</h2>
+              <div class="card-subtitle">${escapeHtml(subtitle)}</div>
+            </div>
+            <div class="badge">${escapeHtml(p.statutPointage || "À pointer")}</div>
+          </div>
+
+          <div class="grid">
+            <div class="field">
+              <span class="field-label">Abonné</span>
+              <div class="field-value">${escapeHtml(p.nomAbonne || "")}</div>
+            </div>
+
+            <div class="field">
+              <span class="field-label">Appartement</span>
+              <div class="field-value">${escapeHtml(p.appartement || "")}</div>
+            </div>
+
+            <div class="field">
+              <span class="field-label">Prix payé</span>
+              <div class="field-value">${escapeHtml(formatMoney(p.prixPaye) || "")}</div>
+            </div>
+
+            <div class="field">
+              <span class="field-label">Nombre de nuits</span>
+              <div class="field-value">${escapeHtml(p.nombreNuits ?? "")}</div>
+            </div>
+
+            <div class="field">
+              <span class="field-label">Date d’arrivée</span>
+              <div class="field-value">${escapeHtml(formatDate(p.dateDebut) || "")}</div>
+            </div>
+
+            <div class="field">
+              <span class="field-label">Date de départ</span>
+              <div class="field-value">${escapeHtml(formatDate(p.dateFin) || "")}</div>
+            </div>
+
+            <div class="field">
+              <span class="field-label">Date de pointage bancaire</span>
+              <div class="field-value">${escapeHtml(formatDate(p.datePointage) || "")}</div>
+            </div>
+
+            <div class="field">
+              <span class="field-label">Pointé par</span>
+              <div class="field-value">${escapeHtml(p.pointePar || "")}</div>
+            </div>
+          </div>
+
+          <div class="actions">
+            <button class="btn btn-primary btn-pointer" data-record-id="${escapeHtml(record.recordId)}">
+              Marquer comme pointé
+            </button>
+          </div>
+        </article>
+      `;
+    }
+
+    function updateSummary(records) {
+      const summary = document.getElementById("summary");
+      const count = records.length;
+      const totalAmount = records.reduce((sum, r) => {
+        const n = Number(r?.pointage?.prixPaye);
+        return sum + (Number.isFinite(n) ? n : 0);
+      }, 0);
+      const totalNights = records.reduce((sum, r) => {
+        const n = Number(r?.pointage?.nombreNuits);
+        return sum + (Number.isFinite(n) ? n : 0);
+      }, 0);
+
+      document.getElementById("sumCount").textContent = String(count);
+      document.getElementById("sumAmount").textContent = formatMoney(totalAmount);
+      document.getElementById("sumNights").textContent = String(totalNights);
+
+      summary.style.display = count ? "grid" : "none";
+    }
+
+    async function loadPointage() {
+      setMessage("");
+
+      const list = document.getElementById("list");
+      const emptyState = document.getElementById("emptyState");
+
+      list.innerHTML = "";
+      emptyState.style.display = "none";
+
+      try {
+        const data = await api("/api/pointage/list");
+        const records = Array.isArray(data.records) ? data.records : [];
+
+        updateSummary(records);
+
+        if (!records.length) {
+          emptyState.style.display = "block";
+          return;
+        }
+
+        list.innerHTML = records.map(buildCard).join("");
+
+        document.querySelectorAll(".btn-pointer").forEach((btn) => {
+          btn.addEventListener("click", async () => {
+            const recordId = btn.dataset.recordId;
+            if (!recordId) return;
+
+            const oldText = btn.textContent;
+            btn.disabled = true;
+            btn.textContent = "Enregistrement...";
+
+            try {
+              await api("/api/pointage/update", {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json"
+                },
+                body: JSON.stringify({ recordId })
+              });
+
+              setMessage("Le pointage bancaire a bien été enregistré.", "success");
+              await loadPointage();
+            } catch (err) {
+              setMessage(err?.message || "Erreur lors de l’enregistrement du pointage.", "error");
+              btn.disabled = false;
+              btn.textContent = oldText;
+            }
+          });
+        });
+
+      } catch (err) {
+        updateSummary([]);
+        setMessage(err?.message || "Erreur de chargement.", "error");
+      }
+    }
+
+    function logout() {
+      localStorage.removeItem(TOKEN_KEY);
+      window.location.href = "./index.html";
+    }
+
+    document.getElementById("reloadBtn").addEventListener("click", loadPointage);
+    document.getElementById("reloadBtn2").addEventListener("click", loadPointage);
+    document.getElementById("logoutBtn").addEventListener("click", logout);
+
+    loadPointage();
+  </script>
+</body>
+</html>
