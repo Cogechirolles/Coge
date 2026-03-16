@@ -1,0 +1,265 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Administration - Pointage bancaire</title>
+  <style>
+    body{font-family:system-ui,Segoe UI,Roboto,Arial;margin:0;background:#f6f7fb}
+    header{display:flex;justify-content:space-between;align-items:center;padding:14px 16px;background:#fff;border-bottom:1px solid #eceef5}
+    header a{color:#111;text-decoration:none;font-weight:700;margin-right:12px}
+    .btn{padding:8px 10px;border-radius:10px;border:1px solid #d8dbe5;background:#fff;cursor:pointer;font-weight:700}
+    .btn.primary{background:#1f6feb;color:#fff;border-color:#1f6feb}
+    .wrap{max-width:1100px;margin:18px auto;padding:0 12px}
+    .sectionTitle{display:flex;justify-content:space-between;align-items:center;margin:18px 0 10px}
+    .pill{display:inline-block;padding:6px 10px;border-radius:999px;background:#fff;border:1px solid #e2e6f0;font-size:12px;font-weight:800}
+    .card{background:#fff;border:1px solid #eceef5;border-radius:12px;padding:14px;margin:12px 0;box-shadow:0 4px 18px rgba(0,0,0,.05)}
+    .row{display:grid;grid-template-columns: 1.3fr 160px 160px 120px 150px 150px 140px;gap:10px;align-items:end}
+    label{font-size:12px;color:#555;margin-bottom:5px;display:block}
+    input{width:100%;padding:9px;border-radius:10px;border:1px solid #d8dbe5;background:#fff}
+    input[readonly]{background:#f8fafc}
+    .badge{padding:6px 10px;border-radius:999px;font-size:12px;font-weight:900;display:inline-block;margin-left:8px}
+    .badge.gray{background:#fafafa;color:#444;border:1px solid #e6e6e6}
+    .badge.green{background:#edfdf3;color:#166534;border:1px solid #bbf7d0}
+    .meta{font-size:13px;margin-bottom:8px;color:#222}
+    .err{margin-top:8px;color:#b00020;font-size:13px}
+    .ok{margin-top:8px;color:#0c5a1a;font-size:13px}
+    .topcards{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin:14px 0}
+    .stat{background:#fff;border:1px solid #eceef5;border-radius:12px;padding:14px;box-shadow:0 4px 18px rgba(0,0,0,.05)}
+    .stat .k{font-size:12px;color:#666;margin-bottom:6px}
+    .stat .v{font-size:22px;font-weight:800}
+    .muted{color:#666;font-size:13px}
+    @media (max-width:980px){
+      .row{grid-template-columns:1fr 1fr}
+      .topcards{grid-template-columns:1fr}
+    }
+  </style>
+</head>
+
+<body>
+
+<header>
+  <div>
+    <a href="reservations.html">Réservations</a>
+    <a href="cles.html">Gestion des clés</a>
+    <a href="pointage.html">Pointage bancaire</a>
+  </div>
+  <div>
+    <span id="who" style="font-weight:700;color:#444;margin-right:10px"></span>
+    <button class="btn" id="logout">Déconnexion</button>
+  </div>
+</header>
+
+<div class="wrap">
+
+  <div class="sectionTitle">
+    <div><strong>Opérations à pointer</strong></div>
+    <div class="pill" id="pillCount">…</div>
+  </div>
+
+  <div class="topcards">
+    <div class="stat">
+      <div class="k">Nombre d'opérations</div>
+      <div class="v" id="statCount">0</div>
+    </div>
+    <div class="stat">
+      <div class="k">Montant total à pointer</div>
+      <div class="v" id="statAmount">0 €</div>
+    </div>
+    <div class="stat">
+      <div class="k">Nombre total de nuits</div>
+      <div class="v" id="statNights">0</div>
+    </div>
+  </div>
+
+  <div class="muted">
+    Cette page affiche les réservations validées avec un montant payé renseigné et non encore pointées.
+  </div>
+
+  <div id="list"></div>
+
+</div>
+
+<script>
+const WORKER_BASE_URL = "https://pageadministration.cogechirolles.workers.dev";
+
+function logout(){
+  localStorage.removeItem("coge_admin_token");
+  localStorage.removeItem("coge_admin_name");
+  window.location.href="login.html";
+}
+
+const token = localStorage.getItem("coge_admin_token");
+const adminName = localStorage.getItem("coge_admin_name") || "";
+if(!token) window.location.href = "login.html";
+
+document.getElementById("who").textContent = adminName ? `Connecté : ${adminName}` : "";
+document.getElementById("logout").addEventListener("click", logout);
+
+function esc(s){
+  return String(s ?? "").replace(/[&<>"']/g, m => ({
+    "&":"&amp;",
+    "<":"&lt;",
+    ">":"&gt;",
+    '"':"&quot;",
+    "'":"&#39;"
+  }[m]));
+}
+
+function formatDate(s){
+  return s ? String(s).slice(0,10).split("-").reverse().join("/") : "";
+}
+
+function formatMoney(v){
+  const n = Number(v);
+  if (!Number.isFinite(n)) return "";
+  return n.toLocaleString("fr-FR", { style:"currency", currency:"EUR" });
+}
+
+async function api(path, opts = {}){
+  const r = await fetch(WORKER_BASE_URL + path, {
+    ...opts,
+    headers: {
+      ...(opts.headers || {}),
+      "authorization": "Bearer " + token,
+      "content-type": "application/json"
+    }
+  });
+
+  const j = await r.json().catch(() => ({ ok:false, error:"Réponse API invalide" }));
+  if (!j.ok) {
+    if (r.status === 401) logout();
+    throw new Error(j.error || "Erreur API");
+  }
+  return j;
+}
+
+let allRecords = [];
+
+function updateStats(records){
+  const count = records.length;
+  const totalAmount = records.reduce((sum, r) => {
+    const n = Number(r?.pointage?.prixPaye);
+    return sum + (Number.isFinite(n) ? n : 0);
+  }, 0);
+  const totalNights = records.reduce((sum, r) => {
+    const n = Number(r?.pointage?.nombreNuits);
+    return sum + (Number.isFinite(n) ? n : 0);
+  }, 0);
+
+  document.getElementById("pillCount").textContent = count;
+  document.getElementById("statCount").textContent = count;
+  document.getElementById("statAmount").textContent = formatMoney(totalAmount);
+  document.getElementById("statNights").textContent = totalNights;
+}
+
+function renderCard(rec){
+  const p = rec.pointage || {};
+
+  return `
+    <div class="card" data-id="${esc(rec.recordId)}">
+      <div class="meta">
+        <strong>${esc(p.nomAbonne || "")}</strong>
+        • ${esc(p.appartement || "")}
+        • ${esc(formatDate(p.dateDebut))} → ${esc(formatDate(p.dateFin))}
+        <span class="badge gray">${esc(p.statutPointage || "À pointer")}</span>
+      </div>
+
+      <div class="row">
+        <div>
+          <label>Abonné</label>
+          <input value="${esc(p.nomAbonne || "")}" readonly>
+        </div>
+
+        <div>
+          <label>Appartement</label>
+          <input value="${esc(p.appartement || "")}" readonly>
+        </div>
+
+        <div>
+          <label>Prix payé</label>
+          <input value="${esc(formatMoney(p.prixPaye) || "")}" readonly>
+        </div>
+
+        <div>
+          <label>Nuits</label>
+          <input value="${esc(p.nombreNuits ?? "")}" readonly>
+        </div>
+
+        <div>
+          <label>Arrivée</label>
+          <input value="${esc(formatDate(p.dateDebut) || "")}" readonly>
+        </div>
+
+        <div>
+          <label>Départ</label>
+          <input value="${esc(formatDate(p.dateFin) || "")}" readonly>
+        </div>
+
+        <div>
+          <button class="btn primary save">Pointer</button>
+        </div>
+      </div>
+
+      <div class="ok"></div>
+      <div class="err"></div>
+    </div>
+  `;
+}
+
+function render(){
+  const listEl = document.getElementById("list");
+
+  updateStats(allRecords);
+
+  if (!allRecords.length) {
+    listEl.innerHTML = `<div class="card"><div class="meta">Aucune opération à pointer.</div></div>`;
+    return;
+  }
+
+  listEl.innerHTML = allRecords.map(renderCard).join("");
+  bind();
+}
+
+function bind(){
+  document.querySelectorAll(".card").forEach(card => {
+    card.querySelector(".save").onclick = async () => {
+      const recordId = card.dataset.id;
+      const errBox = card.querySelector(".err");
+      const okBox = card.querySelector(".ok");
+      const btn = card.querySelector(".save");
+
+      errBox.textContent = "";
+      okBox.textContent = "";
+      btn.disabled = true;
+      btn.textContent = "Enregistrement...";
+
+      try{
+        await api("/api/pointage/update", {
+          method: "POST",
+          body: JSON.stringify({ recordId })
+        });
+
+        okBox.textContent = "Pointage enregistré.";
+        allRecords = allRecords.filter(r => r.recordId !== recordId);
+        render();
+      }catch(e){
+        errBox.textContent = e.message || "Erreur";
+        btn.disabled = false;
+        btn.textContent = "Pointer";
+      }
+    };
+  });
+}
+
+async function load(){
+  const j = await api("/api/pointage/list", { method:"GET" });
+  allRecords = j.records || [];
+  render();
+}
+
+load();
+</script>
+
+</body>
+</html>
