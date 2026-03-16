@@ -308,6 +308,12 @@ function bind(){
       errBox.textContent = "";
       okBox.textContent = "";
 
+      // 🔒 sécurité : impossible d'attribuer un trousseau sans date de remise
+      if (jeu && !dateRemise) {
+        errBox.textContent = "Veuillez renseigner la date de remise des clés.";
+        return;
+      }
+
       try{
         const body = {
           recordId: id,
